@@ -191,12 +191,12 @@ const STORAGE_KEY = "haikibutsu-connect-calc-v1";
 
 const TYPE_PRESETS = ["可燃ごみ", "生ごみ", "不燃ごみ", "瓶", "缶", "ペットボトル", "段ボール", "その他"];
 
-// 45L≈5kg・70L≈8kgの実測値から線形換算（可燃・不燃で共通）。段ボールは1枚≈0.3kgが目安。
+// 45L≈5kg・70L≈8kgの実測値から線形換算（可燃・不燃で共通）。段ボールは1枚≈1kgが目安（実際の見積り例より）。
 const PRICE_PRESETS = { "可燃ごみ": 40, "不燃ごみ": 100, "段ボール": 35 };
 const SETUP_FEE = 3000;
 
 function suggestWeightPerUnit(item) {
-  if (item.type === "段ボール") return 0.3;
+  if (item.type === "段ボール") return 1;
   if (item.unit === "袋") {
     const L = Number(item.bagSize) || 0;
     if (L <= 0) return "";
@@ -271,20 +271,21 @@ function computeItem(item) {
   const avg = (qtyMin + qtyMax) / 2;
   const days = Number(item.daysPerWeek) || 0;
 
-  let weeklyMin, weeklyMax, weeklyAvg;
+  let monthlyMin, monthlyMax, monthlyAvg;
   if (item.freqMode === "day") {
-    weeklyMin = qtyMin * days;
-    weeklyMax = qtyMax * days;
-    weeklyAvg = avg * days;
+    monthlyMin = qtyMin * days * weeks;
+    monthlyMax = qtyMax * days * weeks;
+    monthlyAvg = avg * days * weeks;
+  } else if (item.freqMode === "week") {
+    monthlyMin = qtyMin * weeks;
+    monthlyMax = qtyMax * weeks;
+    monthlyAvg = avg * weeks;
   } else {
-    weeklyMin = qtyMin;
-    weeklyMax = qtyMax;
-    weeklyAvg = avg;
+    // "month" = 月あたりの数量をそのまま使う（見積もり確定時の「月◯袋」をそのまま入力）
+    monthlyMin = qtyMin;
+    monthlyMax = qtyMax;
+    monthlyAvg = avg;
   }
-
-  const monthlyMin = weeklyMin * weeks;
-  const monthlyMax = weeklyMax * weeks;
-  const monthlyAvg = weeklyAvg * weeks;
 
   const bagSize = Number(item.bagSize) || 0;
   const monthlyVolumeL = (item.unit === "袋" && bagSize > 0) ? monthlyAvg * bagSize : null;
@@ -324,7 +325,7 @@ function render() {
   document.getElementById("modeDetailBtn").classList.toggle("active", !isSimple);
   document.getElementById("modeDesc").textContent = isSimple
     ? "※種別・数量・頻度だけで月間袋数を計算します。容量や料金の試算は「詳細入力」で。"
-    : "※重量(kg/個)は45L≈5kg・70L≈8kgの目安から自動算出（変更可）。段ボールは1枚≈0.3kgが既定値。単価は円/kgで入力してください。";
+    : "※重量(kg/個)は45L≈5kg・70L≈8kgの目安から自動算出（変更可）。段ボールは1枚≈1kgが既定値。単価は円/kgで入力してください。";
   renderSites();
   saveState();
 }
@@ -366,7 +367,7 @@ function renderSiteCard(site) {
         <th>種別</th>
         <th>単位</th>
         <th>頻度パターン</th>
-        <th>1回あたり数量(min〜max)</th>
+        <th>数量(min〜max)</th>
         <th>週の収集日数</th>
         <th>袋サイズ(L)</th>
         <th>重量(kg/個)</th>
@@ -484,11 +485,12 @@ function renderItemRow(site, item) {
       <select data-role="freqMode">
         <option value="day" ${item.freqMode === "day" ? "selected" : ""}>◯袋/日 × 週の収集日数</option>
         <option value="week" ${item.freqMode === "week" ? "selected" : ""}>週あたり直接量</option>
+        <option value="month" ${item.freqMode === "month" ? "selected" : ""}>月あたり直接量（見積り確定値）</option>
       </select>
     </td>
     ${qtyCell}
     <td>
-      <input type="number" min="0" max="7" step="1" data-role="daysPerWeek" value="${item.daysPerWeek}" ${item.freqMode === "week" ? "disabled" : ""} style="width:70px;">
+      <input type="number" min="0" max="7" step="1" data-role="daysPerWeek" value="${item.daysPerWeek}" ${item.freqMode !== "day" ? "disabled" : ""} style="width:70px;">
     </td>
     <td><input type="number" min="0" step="1" data-role="bagSize" value="${item.bagSize}" style="width:80px;" placeholder="-"></td>
     <td><input type="number" min="0" step="0.01" data-role="weightPerUnit" value="${item.weightPerUnit}" style="width:80px;" placeholder="-"></td>
