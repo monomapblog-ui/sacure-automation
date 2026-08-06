@@ -287,7 +287,7 @@ function computeItem(item) {
   const monthlyAvg = weeklyAvg * weeks;
 
   const bagSize = Number(item.bagSize) || 0;
-  const monthlyVolumeL = bagSize > 0 ? monthlyAvg * bagSize : null;
+  const monthlyVolumeL = (item.unit === "袋" && bagSize > 0) ? monthlyAvg * bagSize : null;
 
   const weightPerUnit = Number(item.weightPerUnit) || 0;
   const monthlyWeightKg = weightPerUnit > 0 ? monthlyAvg * weightPerUnit : null;
@@ -503,8 +503,10 @@ function renderItemRow(site, item) {
   tr.querySelector('[data-role="type"]').addEventListener("change", (e) => {
     item.type = e.target.value;
     if (item.type === "段ボール") { item.unit = "枚"; }
+    if (item.unit === "枚") { item.bagSize = ""; }
     item.weightPerUnit = suggestWeightPerUnit(item);
-    if (PRICE_PRESETS[item.type] !== undefined) item.unitPrice = PRICE_PRESETS[item.type];
+    // 単価は種別ごとの目安なので、種別を変えたら既定値に合わせて必ず入れ替える（前の種別の単価が残らないように）
+    item.unitPrice = PRICE_PRESETS[item.type] !== undefined ? PRICE_PRESETS[item.type] : "";
     render();
   });
   const customInput = tr.querySelector('[data-role="customType"]');
@@ -514,6 +516,8 @@ function renderItemRow(site, item) {
   const unitSelect = tr.querySelector('[data-role="unit"]');
   if (unitSelect) unitSelect.addEventListener("change", (e) => {
     item.unit = e.target.value;
+    // 「枚」は容量(L)の概念が無いので、袋サイズの入力は不要にする
+    if (item.unit === "枚") { item.bagSize = ""; }
     item.weightPerUnit = suggestWeightPerUnit(item);
     render();
   });
