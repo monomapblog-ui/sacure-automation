@@ -9,10 +9,60 @@
     --bg: #f5f6f3;
     --panel: #ffffff;
     --border: #d9dcd3;
+    --border-soft: #eef0ea;
     --text: #232520;
     --muted: #6b6f65;
     --accent: #2f6b3a;
+    --accent-hover: #255a2e;
     --accent-soft: #e7f0e5;
+    --accent-contrast: #ffffff;
+    --danger: #b3432b;
+    --danger-soft: #f6e6e1;
+    --header: #1f3d24;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12160f;
+      --panel: #1a2016;
+      --border: #33402c;
+      --border-soft: #263021;
+      --text: #e7ece2;
+      --muted: #98a390;
+      --accent: #6cbf6f;
+      --accent-hover: #7fd382;
+      --accent-soft: #23321f;
+      --accent-contrast: #12160f;
+      --danger: #e2916f;
+      --danger-soft: #3a2620;
+      --header: #a7d6a9;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12160f;
+    --panel: #1a2016;
+    --border: #33402c;
+    --border-soft: #263021;
+    --text: #e7ece2;
+    --muted: #98a390;
+    --accent: #6cbf6f;
+    --accent-hover: #7fd382;
+    --accent-soft: #23321f;
+    --accent-contrast: #12160f;
+    --danger: #e2916f;
+    --danger-soft: #3a2620;
+    --header: #a7d6a9;
+  }
+  :root[data-theme="light"] {
+    --bg: #f5f6f3;
+    --panel: #ffffff;
+    --border: #d9dcd3;
+    --border-soft: #eef0ea;
+    --text: #232520;
+    --muted: #6b6f65;
+    --accent: #2f6b3a;
+    --accent-hover: #255a2e;
+    --accent-soft: #e7f0e5;
+    --accent-contrast: #ffffff;
     --danger: #b3432b;
     --danger-soft: #f6e6e1;
     --header: #1f3d24;
@@ -26,7 +76,7 @@
     padding: 24px;
     line-height: 1.5;
   }
-  h1 { font-size: 1.4rem; margin: 0 0 4px; color: var(--header); }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; color: var(--header); text-wrap: balance; }
   .subtitle { color: var(--muted); margin: 0 0 20px; font-size: 0.9rem; }
   .container { max-width: 1180px; margin: 0 auto; }
   .global-bar {
@@ -38,25 +88,26 @@
   .global-bar input[type=number] { width: 80px; }
   .mode-toggle { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
   .mode-toggle button {
-    border: none; border-radius: 0; padding: 7px 14px; font-size: 0.85rem; background: #fff; color: var(--text);
+    border: none; border-radius: 0; padding: 7px 14px; font-size: 0.85rem; background: var(--panel); color: var(--text);
   }
   .mode-toggle button + button { border-left: 1px solid var(--border); }
-  .mode-toggle button.active { background: var(--accent); color: #fff; }
+  .mode-toggle button.active { background: var(--accent); color: var(--accent-contrast); }
   .mode-toggle button:hover:not(.active) { background: var(--accent-soft); }
   .mode-desc { color: var(--muted); font-size: 0.78rem; }
   input, select {
     font-family: inherit; font-size: 0.9rem; padding: 5px 7px;
-    border: 1px solid var(--border); border-radius: 6px; background: #fff; color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: var(--text);
   }
   input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
   button {
     font-family: inherit; font-size: 0.85rem; cursor: pointer;
-    border: 1px solid var(--border); border-radius: 6px; background: #fff;
+    border: 1px solid var(--border); border-radius: 6px; background: var(--panel);
     padding: 6px 12px; color: var(--text);
   }
   button:hover { background: var(--accent-soft); border-color: var(--accent); }
-  .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-  .btn-primary:hover { background: #255a2e; }
+  button:focus-visible, .mode-toggle button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn-primary { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
+  .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
   .btn-danger { color: var(--danger); }
   .btn-danger:hover { background: var(--danger-soft); border-color: var(--danger); }
   .site-card {
@@ -70,7 +121,7 @@
     text-align: left; color: var(--muted); font-weight: 600; font-size: 0.75rem;
     padding: 4px 6px; border-bottom: 1px solid var(--border); white-space: nowrap;
   }
-  tbody td { padding: 4px 6px; vertical-align: middle; border-bottom: 1px solid #eef0ea; }
+  tbody td { padding: 4px 6px; vertical-align: middle; border-bottom: 1px solid var(--border-soft); font-variant-numeric: tabular-nums; }
   tbody tr:last-child td { border-bottom: none; }
   .num-col { text-align: right; }
   .qty-pair { display: flex; align-items: center; gap: 4px; }
@@ -80,7 +131,7 @@
     display: flex; gap: 24px; flex-wrap: wrap; margin-top: 12px; padding-top: 10px;
     border-top: 1px dashed var(--border); font-size: 0.85rem;
   }
-  .site-summary .stat b { display: block; font-size: 1.05rem; color: var(--header); }
+  .site-summary .stat b { display: block; font-size: 1.05rem; color: var(--header); font-variant-numeric: tabular-nums; }
   .site-summary .stat span { color: var(--muted); font-size: 0.75rem; }
   .add-row-btn { margin-top: 8px; }
   .toolbar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -88,6 +139,7 @@
   select.type-select { min-width: 90px; }
   .custom-type-input { width: 80px; }
   footer { text-align: center; color: var(--muted); font-size: 0.75rem; margin-top: 30px; }
+  .table-scroll { overflow-x: auto; }
 </style>
 </head>
 <body>
@@ -310,7 +362,10 @@ function renderSiteCard(site) {
   `;
   const tbody = table.querySelector("tbody");
   site.items.forEach(item => tbody.appendChild(renderItemRow(site, item)));
-  card.appendChild(table);
+  const tableScroll = document.createElement("div");
+  tableScroll.className = "table-scroll";
+  tableScroll.appendChild(table);
+  card.appendChild(tableScroll);
 
   const addRowBtn = document.createElement("button");
   addRowBtn.className = "add-row-btn";
