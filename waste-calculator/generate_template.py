@@ -46,6 +46,7 @@ lines = [
     ("・案件名：案件ごとに分かる名前を入力（複数案件を1シートに並べてOK）", False),
     ("・種別：可燃ごみ／生ごみ／不燃ごみ／瓶／缶／ペットボトル／段ボール／その他 からドロップダウンで選択", False),
     ("・頻度(週◯回)：収集の頻度。例:「1日1〜2袋、週5回」→数量1〜2・頻度5、「週に1〜2袋」→数量1〜2・頻度1", False),
+    ("・数量min／数量max：「1〜2袋」のように幅がある場合は両方入力。「2袋」のように1つだけの場合は数量maxを空欄にすればOK（数量minの値だけで計算されます）。", False),
     ("・（詳細入力のみ）重量(kg/個)：料金計算のもとになる重量。45L≈5kg・70L≈8kgの実測値をもとにした目安を仮入力していますが、必要に応じて修正してください（段ボールは1枚≈0.3kgが目安）。", False),
     ("・（詳細入力のみ）単価(円/kg)：1kgあたりの料金。可燃40円・不燃100円・段ボール35円を仮入力済み（実際の契約単価に合わせて修正してください）", False),
     ("", False),
@@ -53,6 +54,7 @@ lines = [
     ("1ヶ月あたりの週数は各シートのC1セルで設定（既定値 4.35週 ＝ 365日 ÷ 12ヶ月 ÷ 7日）。", False),
     ("数量が明記されていない項目（例:「不燃物 週2日」のみで数量記載なし）は 1回1袋 と仮定しています。実数が分かり次第、数量欄を修正してください。", False),
     ("概算料金＝月間量×重量(kg/個)×単価(円/kg)で計算しています。重量が未入力の項目は料金計算から除外されます。", False),
+    ("初回手数料（詳細入力シートC2セル、既定 ¥3,000）は新規契約の案件ごとに一律で加算する費用です。ご提示金額＝その案件の月間概算料金の合計＋初回手数料、として手動で合算してください。", False),
 ]
 for text, bold in lines:
     c = ws_help.cell(r, 2, text)
@@ -115,8 +117,8 @@ for offset, row_data in enumerate(s_samples):
     ws_s.cell(r, 5, freq).font = INPUT_FONT
 
 for r in range(s_first_row, s_last_row + 1):
-    # F: 月間量(平均) = (min+max)/2 * 頻度(週) * 週数
-    ws_s.cell(r, 6, f'=IF(C{r}="","",(C{r}+D{r})/2*E{r}*$C$1)')
+    # F: 月間量(平均) = 数量(1つだけならその値、min〜maxならその平均) * 頻度(週) * 週数
+    ws_s.cell(r, 6, f'=IF(C{r}="","",IF(D{r}="",C{r},(C{r}+D{r})/2)*E{r}*$C$1)')
     for col in range(1, 7):
         cell = ws_s.cell(r, col)
         cell.border = BORDER
@@ -136,6 +138,12 @@ weeks_cell = ws.cell(1, 3, 4.35)
 weeks_cell.font = INPUT_FONT
 weeks_cell.fill = ASSUMPTION_FILL
 ws.cell(1, 4, "※365日÷12ヶ月÷7日で算出した平均週数。必要に応じて変更してください。").font = NOTE_FONT
+
+ws.cell(2, 1, "初回手数料(円)").font = Font(name=FONT_NAME, bold=True, size=10)
+setup_fee_cell = ws.cell(2, 3, 3000)
+setup_fee_cell.font = INPUT_FONT
+setup_fee_cell.fill = ASSUMPTION_FILL
+ws.cell(2, 4, "※新規契約時に案件ごと一律で加算。ご提示金額＝月間概算料金の合計＋この金額（手動で合算してください）。").font = NOTE_FONT
 
 headers = ["案件名", "種別", "単位(袋/枚)", "頻度パターン(日/週)", "数量min(1回あたり)",
            "数量max(1回あたり)", "週の収集日数(日パターンのみ)", "袋サイズ(L)", "重量(kg/個)", "単価(円/kg)",
@@ -197,8 +205,9 @@ for offset, row_data in enumerate(sample_rows):
     ws.cell(r, 10, price).font = INPUT_FONT
 
 for r in range(first_data_row, last_data_row + 1):
-    # K: 月間量(平均) = IF(freq="日", (min+max)/2*days, (min+max)/2) * weeks
-    ws.cell(r, 11, f'=IF(E{r}="","",IF(D{r}="日",(E{r}+F{r})/2*G{r},(E{r}+F{r})/2)*$C$1)')
+    # K: 月間量(平均) = 数量(1つだけならその値、min〜maxならその平均) を頻度パターンに応じて月換算
+    qty_expr = f'IF(F{r}="",E{r},(E{r}+F{r})/2)'
+    ws.cell(r, 11, f'=IF(E{r}="","",IF(D{r}="日",{qty_expr}*G{r},{qty_expr})*$C$1)')
     # L: 月間容量(L) = 月間量 * 袋サイズ（袋サイズ未入力なら空欄）
     ws.cell(r, 12, f'=IF(OR(K{r}="",H{r}=""),"",K{r}*H{r})')
     # M: 月間重量(kg) = 月間量 * 重量(kg/個)（重量未入力なら空欄）

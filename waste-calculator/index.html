@@ -133,6 +133,19 @@
   }
   .site-summary .stat b { display: block; font-size: 1.6rem; color: var(--header); font-variant-numeric: tabular-nums; }
   .site-summary .stat span { color: var(--muted); font-size: 0.92rem; }
+  .quote-box {
+    margin-top: 18px; padding: 22px 26px; border-radius: 20px;
+    background: linear-gradient(135deg, var(--pink) 0%, var(--header) 100%); color: #ffffff;
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+  }
+  .quote-box .quote-label { font-size: 1.1rem; font-weight: 700; opacity: 0.92; }
+  .quote-box .quote-amount { font-size: 2.8rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.2; }
+  .quote-box .quote-note { font-size: 0.92rem; opacity: 0.88; margin-top: 4px; }
+  .setup-fee-toggle {
+    display: flex; align-items: center; gap: 10px; font-size: 1.02rem; font-weight: 600; color: #ffffff;
+    background: rgba(255, 255, 255, 0.18); padding: 10px 16px; border-radius: 999px; cursor: pointer;
+  }
+  .setup-fee-toggle input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--header); cursor: pointer; }
   .add-row-btn { margin-top: 10px; }
   .toolbar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
   .note { color: var(--muted); font-size: 0.92rem; margin-top: 10px; }
@@ -180,6 +193,7 @@ const TYPE_PRESETS = ["可燃ごみ", "生ごみ", "不燃ごみ", "瓶", "缶",
 
 // 45L≈5kg・70L≈8kgの実測値から線形換算（可燃・不燃で共通）。段ボールは1枚≈0.3kgが目安。
 const PRICE_PRESETS = { "可燃ごみ": 40, "不燃ごみ": 100, "段ボール": 35 };
+const SETUP_FEE = 3000;
 
 function suggestWeightPerUnit(item) {
   if (item.type === "段ボール") return 0.3;
@@ -220,6 +234,7 @@ function defaultSite(name) {
   return {
     id: uid(),
     name: name || "新規案件",
+    includeSetupFee: true,
     items: [
       defaultItem("可燃ごみ"),
       defaultItem("不燃ごみ")
@@ -249,7 +264,10 @@ function saveState() {
 function computeItem(item) {
   const weeks = state.weeksPerMonth;
   const qtyMin = Number(item.qtyMin) || 0;
-  const qtyMax = Number(item.qtyMax) || 0;
+  // 最大値が未入力なら「範囲」ではなく最小値と同じ単一の数量として扱う
+  const qtyMaxRaw = item.qtyMax;
+  const hasMax = qtyMaxRaw !== "" && qtyMaxRaw !== null && qtyMaxRaw !== undefined && !Number.isNaN(Number(qtyMaxRaw));
+  const qtyMax = hasMax ? Number(qtyMaxRaw) : qtyMin;
   const avg = (qtyMin + qtyMax) / 2;
   const days = Number(item.daysPerWeek) || 0;
 
@@ -289,7 +307,9 @@ function computeSite(site) {
     if (c.monthlyWeightKg !== null) totalWeight += c.monthlyWeightKg;
     if (c.monthlyCost !== null) totalCost += c.monthlyCost;
   });
-  return { totalQty, totalVolume, totalWeight, totalCost };
+  const setupFee = site.includeSetupFee ? SETUP_FEE : 0;
+  const quoteTotal = totalCost + setupFee;
+  return { totalQty, totalVolume, totalWeight, totalCost, setupFee, quoteTotal };
 }
 
 function fmt(n, digits = 1) {
@@ -389,6 +409,27 @@ function renderSiteCard(site) {
   `;
   card.appendChild(summaryDiv);
 
+  if (!isSimple) {
+    const quoteBox = document.createElement("div");
+    quoteBox.className = "quote-box";
+    quoteBox.innerHTML = `
+      <div>
+        <div class="quote-label">ご提示金額</div>
+        <div class="quote-amount">¥${fmt(summary.quoteTotal, 0)}</div>
+        <div class="quote-note">内訳：月額概算 ¥${fmt(summary.totalCost, 0)}${site.includeSetupFee ? ` ＋ 初回手数料 ¥${fmt(SETUP_FEE, 0)}` : ""}</div>
+      </div>
+      <label class="setup-fee-toggle">
+        <input type="checkbox" data-role="setupFee" ${site.includeSetupFee ? "checked" : ""}>
+        初回手数料（¥3,000）を含める
+      </label>
+    `;
+    quoteBox.querySelector('[data-role="setupFee"]').addEventListener("change", (e) => {
+      site.includeSetupFee = e.target.checked;
+      render();
+    });
+    card.appendChild(quoteBox);
+  }
+
   head.querySelector('[data-role="site-name"]').addEventListener("input", (e) => {
     site.name = e.target.value;
     saveState();
@@ -419,7 +460,7 @@ function renderItemRow(site, item) {
     <td>
       <div class="qty-pair">
         <input type="number" min="0" step="0.5" data-role="qtyMin" value="${item.qtyMin}"> 〜
-        <input type="number" min="0" step="0.5" data-role="qtyMax" value="${item.qtyMax}">
+        <input type="number" min="0" step="0.5" data-role="qtyMax" value="${item.qtyMax}" placeholder="－" title="数量が1つだけの場合は空欄でOK（最小値のみで計算します）">
       </div>
     </td>`;
   const monthlyCell = `<td class="num-col">${fmt(c.monthlyAvg)}<br><span class="note" style="margin:0;">(${fmt(c.monthlyMin)}〜${fmt(c.monthlyMax)})</span></td>`;
