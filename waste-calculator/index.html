@@ -36,6 +36,14 @@
   }
   .global-bar label { font-size: 0.85rem; color: var(--muted); }
   .global-bar input[type=number] { width: 80px; }
+  .mode-toggle { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .mode-toggle button {
+    border: none; border-radius: 0; padding: 7px 14px; font-size: 0.85rem; background: #fff; color: var(--text);
+  }
+  .mode-toggle button + button { border-left: 1px solid var(--border); }
+  .mode-toggle button.active { background: var(--accent); color: #fff; }
+  .mode-toggle button:hover:not(.active) { background: var(--accent-soft); }
+  .mode-desc { color: var(--muted); font-size: 0.78rem; }
   input, select {
     font-family: inherit; font-size: 0.9rem; padding: 5px 7px;
     border: 1px solid var(--border); border-radius: 6px; background: #fff; color: var(--text);
@@ -76,12 +84,6 @@
   .site-summary .stat span { color: var(--muted); font-size: 0.75rem; }
   .add-row-btn { margin-top: 8px; }
   .toolbar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-  .compare-section { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; overflow-x: auto; }
-  .compare-section h2 { font-size: 1.05rem; margin: 0 0 10px; color: var(--header); }
-  .compare-table th, .compare-table td { padding: 6px 10px; }
-  .compare-table thead th { background: #fafbf8; }
-  .compare-table tbody tr:hover { background: #fafbf8; }
-  .compare-table td.total-col, .compare-table th.total-col { border-left: 2px solid var(--border); font-weight: 600; }
   .note { color: var(--muted); font-size: 0.78rem; margin-top: 10px; }
   select.type-select { min-width: 90px; }
   .custom-type-input { width: 80px; }
@@ -94,6 +96,14 @@
   <p class="subtitle">ヒアリング内容（例：「45Lが1〜2袋/日、週5回、不燃物週2日」）を入力すると、月間の袋数・容量・概算料金を自動計算します。</p>
 
   <div class="global-bar">
+    <div class="mode-toggle" role="group" aria-label="表示モード">
+      <button type="button" id="modeSimpleBtn">かんたん入力</button>
+      <button type="button" id="modeDetailBtn">詳細入力</button>
+    </div>
+    <span class="mode-desc" id="modeDesc"></span>
+  </div>
+
+  <div class="global-bar">
     <div>
       <label>1ヶ月あたりの週数&nbsp;</label>
       <input type="number" id="weeksPerMonth" step="0.01" min="1" value="4.35">
@@ -103,19 +113,10 @@
 
   <div class="toolbar">
     <button class="btn-primary" id="addSiteBtn">＋ ラボ（案件）を追加</button>
-    <button id="exportCsvBtn">比較表をCSVで書き出す</button>
     <button id="resetBtn" class="btn-danger">全データをクリア</button>
   </div>
 
   <div id="sitesContainer"></div>
-
-  <div class="compare-section">
-    <h2>収集ラボ間の比較表</h2>
-    <div style="overflow-x:auto;">
-      <table class="compare-table" id="compareTable"></table>
-    </div>
-    <p class="note">各セルは月間の平均量（min〜maxの中央値ベース）です。容量(L)はサイズを入力した袋のみ、概算料金は単価を入力した項目のみ合算しています。</p>
-  </div>
 
   <footer>廃棄物コネクト｜社内用 案件量計算ツール</footer>
 </div>
@@ -159,17 +160,17 @@ let state = loadState();
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (!parsed.mode) parsed.mode = "simple";
+      return parsed;
+    }
   } catch (e) { /* ignore */ }
-  return { weeksPerMonth: 4.35, sites: [defaultSite("中野区ラボ")] };
+  return { mode: "simple", weeksPerMonth: 4.35, sites: [defaultSite("中野区ラボ")] };
 }
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
-
-function itemLabel(item) {
-  return item.type === "その他" ? (item.customType || "その他") : item.type;
 }
 
 // monthly avg / min / max quantity for an item
@@ -206,16 +207,13 @@ function computeItem(item) {
 
 function computeSite(site) {
   let totalQty = 0, totalVolume = 0, totalCost = 0;
-  const byType = {};
   site.items.forEach(item => {
     const c = computeItem(item);
     totalQty += c.monthlyAvg;
     if (c.monthlyVolumeL !== null) totalVolume += c.monthlyVolumeL;
     if (c.monthlyCost !== null) totalCost += c.monthlyCost;
-    const label = itemLabel(item);
-    byType[label] = (byType[label] || 0) + c.monthlyAvg;
   });
-  return { totalQty, totalVolume, totalCost, byType };
+  return { totalQty, totalVolume, totalCost };
 }
 
 function fmt(n, digits = 1) {
@@ -225,8 +223,13 @@ function fmt(n, digits = 1) {
 
 function render() {
   document.getElementById("weeksPerMonth").value = state.weeksPerMonth;
+  const isSimple = state.mode === "simple";
+  document.getElementById("modeSimpleBtn").classList.toggle("active", isSimple);
+  document.getElementById("modeDetailBtn").classList.toggle("active", !isSimple);
+  document.getElementById("modeDesc").textContent = isSimple
+    ? "※種別・数量・頻度だけで月間袋数を計算します。容量や料金の試算は「詳細入力」で。"
+    : "※単位・袋サイズ・単価まで含めて、月間容量や概算料金も試算します。";
   renderSites();
-  renderCompareTable();
   saveState();
 }
 
@@ -248,8 +251,20 @@ function renderSiteCard(site) {
   `;
   card.appendChild(head);
 
+  const isSimple = state.mode === "simple";
   const table = document.createElement("table");
-  table.innerHTML = `
+  table.innerHTML = isSimple ? `
+    <thead>
+      <tr>
+        <th>種別</th>
+        <th>1回あたり数量(min〜max)</th>
+        <th>頻度(週◯回)</th>
+        <th class="num-col">月間量(平均)</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  ` : `
     <thead>
       <tr>
         <th>種別</th>
@@ -283,7 +298,9 @@ function renderSiteCard(site) {
   const summary = computeSite(site);
   const summaryDiv = document.createElement("div");
   summaryDiv.className = "site-summary";
-  summaryDiv.innerHTML = `
+  summaryDiv.innerHTML = isSimple ? `
+    <div class="stat"><b>${fmt(summary.totalQty)}</b><span>月間合計 個数（袋+枚）</span></div>
+  ` : `
     <div class="stat"><b>${fmt(summary.totalQty)}</b><span>月間合計 個数（袋+枚）</span></div>
     <div class="stat"><b>${fmt(summary.totalVolume)}</b><span>月間合計 容量(L)</span></div>
     <div class="stat"><b>${summary.totalCost > 0 ? "¥" + fmt(summary.totalCost, 0) : "-"}</b><span>月間概算料金（単価入力分のみ）</span></div>
@@ -293,7 +310,6 @@ function renderSiteCard(site) {
   head.querySelector('[data-role="site-name"]').addEventListener("input", (e) => {
     site.name = e.target.value;
     saveState();
-    renderCompareTable();
   });
   head.querySelector('[data-role="delete-site"]').addEventListener("click", () => {
     if (!confirm(`「${site.name}」を削除しますか？`)) return;
@@ -308,14 +324,33 @@ function renderItemRow(site, item) {
   const tr = document.createElement("tr");
   const c = computeItem(item);
   const isCustom = item.type === "その他";
+  const isSimple = state.mode === "simple";
 
-  tr.innerHTML = `
+  const typeCell = `
     <td>
       <select class="type-select" data-role="type">
         ${TYPE_PRESETS.map(t => `<option value="${t}" ${t === item.type ? "selected" : ""}>${t}</option>`).join("")}
       </select>
       ${isCustom ? `<input type="text" class="custom-type-input" data-role="customType" value="${escapeAttr(item.customType)}" placeholder="種別名">` : ""}
-    </td>
+    </td>`;
+  const qtyCell = `
+    <td>
+      <div class="qty-pair">
+        <input type="number" min="0" step="0.5" data-role="qtyMin" value="${item.qtyMin}"> 〜
+        <input type="number" min="0" step="0.5" data-role="qtyMax" value="${item.qtyMax}">
+      </div>
+    </td>`;
+  const monthlyCell = `<td class="num-col">${fmt(c.monthlyAvg)}<br><span class="note" style="margin:0;">(${fmt(c.monthlyMin)}〜${fmt(c.monthlyMax)})</span></td>`;
+  const deleteCell = `<td class="row-actions"><button class="btn-danger" data-role="delete-item" title="削除">×</button></td>`;
+
+  tr.innerHTML = isSimple ? `
+    ${typeCell}
+    ${qtyCell}
+    <td><input type="number" min="0" max="7" step="1" data-role="daysPerWeek" value="${item.daysPerWeek}" style="width:52px;"></td>
+    ${monthlyCell}
+    ${deleteCell}
+  ` : `
+    ${typeCell}
     <td>
       <select data-role="unit">
         <option value="袋" ${item.unit === "袋" ? "selected" : ""}>袋</option>
@@ -328,21 +363,16 @@ function renderItemRow(site, item) {
         <option value="week" ${item.freqMode === "week" ? "selected" : ""}>週あたり直接量</option>
       </select>
     </td>
-    <td>
-      <div class="qty-pair">
-        <input type="number" min="0" step="0.5" data-role="qtyMin" value="${item.qtyMin}"> 〜
-        <input type="number" min="0" step="0.5" data-role="qtyMax" value="${item.qtyMax}">
-      </div>
-    </td>
+    ${qtyCell}
     <td>
       <input type="number" min="0" max="7" step="1" data-role="daysPerWeek" value="${item.daysPerWeek}" ${item.freqMode === "week" ? "disabled" : ""} style="width:52px;">
     </td>
     <td><input type="number" min="0" step="1" data-role="bagSize" value="${item.bagSize}" style="width:60px;" placeholder="-"></td>
     <td><input type="number" min="0" step="1" data-role="unitPrice" value="${item.unitPrice}" style="width:70px;" placeholder="-"></td>
-    <td class="num-col">${fmt(c.monthlyAvg)}<br><span class="note" style="margin:0;">(${fmt(c.monthlyMin)}〜${fmt(c.monthlyMax)})</span></td>
+    ${monthlyCell}
     <td class="num-col">${fmt(c.monthlyVolumeL)}</td>
     <td class="num-col">${c.monthlyCost !== null ? "¥" + fmt(c.monthlyCost, 0) : "-"}</td>
-    <td class="row-actions"><button class="btn-danger" data-role="delete-item" title="削除">×</button></td>
+    ${deleteCell}
   `;
 
   tr.querySelector('[data-role="type"]').addEventListener("change", (e) => {
@@ -354,13 +384,21 @@ function renderItemRow(site, item) {
   if (customInput) {
     customInput.addEventListener("input", (e) => { item.customType = e.target.value; render(); });
   }
-  tr.querySelector('[data-role="unit"]').addEventListener("change", (e) => { item.unit = e.target.value; render(); });
-  tr.querySelector('[data-role="freqMode"]').addEventListener("change", (e) => { item.freqMode = e.target.value; render(); });
+  const unitSelect = tr.querySelector('[data-role="unit"]');
+  if (unitSelect) unitSelect.addEventListener("change", (e) => { item.unit = e.target.value; render(); });
+  const freqSelect = tr.querySelector('[data-role="freqMode"]');
+  if (freqSelect) freqSelect.addEventListener("change", (e) => { item.freqMode = e.target.value; render(); });
   tr.querySelector('[data-role="qtyMin"]').addEventListener("input", (e) => { item.qtyMin = e.target.value; render(); });
   tr.querySelector('[data-role="qtyMax"]').addEventListener("input", (e) => { item.qtyMax = e.target.value; render(); });
-  tr.querySelector('[data-role="daysPerWeek"]').addEventListener("input", (e) => { item.daysPerWeek = e.target.value; render(); });
-  tr.querySelector('[data-role="bagSize"]').addEventListener("input", (e) => { item.bagSize = e.target.value; render(); });
-  tr.querySelector('[data-role="unitPrice"]').addEventListener("input", (e) => { item.unitPrice = e.target.value; render(); });
+  tr.querySelector('[data-role="daysPerWeek"]').addEventListener("input", (e) => {
+    item.daysPerWeek = e.target.value;
+    if (isSimple) item.freqMode = "day";
+    render();
+  });
+  const bagSizeInput = tr.querySelector('[data-role="bagSize"]');
+  if (bagSizeInput) bagSizeInput.addEventListener("input", (e) => { item.bagSize = e.target.value; render(); });
+  const unitPriceInput = tr.querySelector('[data-role="unitPrice"]');
+  if (unitPriceInput) unitPriceInput.addEventListener("input", (e) => { item.unitPrice = e.target.value; render(); });
   tr.querySelector('[data-role="delete-item"]').addEventListener("click", () => {
     site.items = site.items.filter(i => i.id !== item.id);
     render();
@@ -369,59 +407,13 @@ function renderItemRow(site, item) {
   return tr;
 }
 
-function renderCompareTable() {
-  const table = document.getElementById("compareTable");
-  if (state.sites.length === 0) {
-    table.innerHTML = "<tbody><tr><td>ラボを追加してください。</td></tr></tbody>";
-    return;
-  }
-  const allTypes = Array.from(new Set(state.sites.flatMap(s => s.items.map(itemLabel))));
-
-  let thead = "<thead><tr><th>ラボ名</th>";
-  allTypes.forEach(t => thead += `<th class="num-col">${t}（月間）</th>`);
-  thead += `<th class="num-col total-col">合計個数</th><th class="num-col">合計容量(L)</th><th class="num-col">概算料金合計</th></tr></thead>`;
-
-  let tbody = "<tbody>";
-  state.sites.forEach(site => {
-    const summary = computeSite(site);
-    tbody += `<tr><td>${escapeHtml(site.name)}</td>`;
-    allTypes.forEach(t => {
-      tbody += `<td class="num-col">${fmt(summary.byType[t] || 0)}</td>`;
-    });
-    tbody += `<td class="num-col total-col">${fmt(summary.totalQty)}</td>`;
-    tbody += `<td class="num-col">${fmt(summary.totalVolume)}</td>`;
-    tbody += `<td class="num-col">${summary.totalCost > 0 ? "¥" + fmt(summary.totalCost, 0) : "-"}</td>`;
-    tbody += `</tr>`;
-  });
-  tbody += "</tbody>";
-
-  table.innerHTML = thead + tbody;
-}
-
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 function escapeAttr(s) { return escapeHtml(s); }
 
-function exportCsv() {
-  const allTypes = Array.from(new Set(state.sites.flatMap(s => s.items.map(itemLabel))));
-  const header = ["ラボ名", ...allTypes.map(t => `${t}（月間）`), "合計個数", "合計容量(L)", "概算料金合計"];
-  const rows = [header];
-  state.sites.forEach(site => {
-    const summary = computeSite(site);
-    const row = [site.name, ...allTypes.map(t => (summary.byType[t] || 0).toFixed(1)), summary.totalQty.toFixed(1), summary.totalVolume.toFixed(1), summary.totalCost.toFixed(0)];
-    rows.push(row);
-  });
-  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\r\n");
-  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "廃棄物コネクト_ラボ比較表.csv";
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
+document.getElementById("modeSimpleBtn").addEventListener("click", () => { state.mode = "simple"; render(); });
+document.getElementById("modeDetailBtn").addEventListener("click", () => { state.mode = "detailed"; render(); });
 document.getElementById("addSiteBtn").addEventListener("click", () => {
   state.sites.push(defaultSite(`新規ラボ${state.sites.length + 1}`));
   render();
@@ -430,10 +422,9 @@ document.getElementById("weeksPerMonth").addEventListener("input", (e) => {
   state.weeksPerMonth = Number(e.target.value) || 4.35;
   render();
 });
-document.getElementById("exportCsvBtn").addEventListener("click", exportCsv);
 document.getElementById("resetBtn").addEventListener("click", () => {
   if (!confirm("全てのラボ・データを削除して初期状態に戻します。よろしいですか？")) return;
-  state = { weeksPerMonth: 4.35, sites: [defaultSite("新規ラボ")] };
+  state = { mode: state.mode, weeksPerMonth: 4.35, sites: [defaultSite("新規ラボ")] };
   render();
 });
 
