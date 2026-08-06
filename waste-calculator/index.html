@@ -6,120 +6,117 @@
 <title>廃棄物コネクト 案件量計算ツール</title>
 <style>
   :root {
-    --bg: #f5f6f3;
+    --bg: #fff6f9;
+    --bg-accent: #eefaf3;
     --panel: #ffffff;
-    --border: #d9dcd3;
-    --border-soft: #eef0ea;
-    --text: #232520;
-    --muted: #6b6f65;
-    --accent: #2f6b3a;
-    --accent-hover: #255a2e;
-    --accent-soft: #e7f0e5;
+    --border: #ffd9e6;
+    --border-soft: #fff0f5;
+    --text: #4a3540;
+    --muted: #b48a9c;
+    --accent: #5fcf9a;
+    --accent-hover: #45bd85;
+    --accent-soft: #e3f9ee;
     --accent-contrast: #ffffff;
-    --danger: #b3432b;
-    --danger-soft: #f6e6e1;
-    --header: #1f3d24;
+    --pink: #ff8fab;
+    --pink-hover: #ff6f95;
+    --danger: #ff8fab;
+    --danger-soft: #ffe6ee;
+    --header: #ec6c96;
+    --shadow: 0 6px 18px rgba(255, 143, 171, 0.18);
+    --shadow-sm: 0 3px 10px rgba(255, 143, 171, 0.14);
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #12160f;
-      --panel: #1a2016;
-      --border: #33402c;
-      --border-soft: #263021;
-      --text: #e7ece2;
-      --muted: #98a390;
-      --accent: #6cbf6f;
-      --accent-hover: #7fd382;
-      --accent-soft: #23321f;
-      --accent-contrast: #12160f;
-      --danger: #e2916f;
-      --danger-soft: #3a2620;
-      --header: #a7d6a9;
+      --bg: #241823;
+      --bg-accent: #1c2620;
+      --panel: #2f202d;
+      --border: #4d3348;
+      --border-soft: #3a2837;
+      --text: #f5e6ef;
+      --muted: #c99cb5;
+      --accent: #6bdba0;
+      --accent-hover: #82e6b2;
+      --accent-soft: #253a2f;
+      --accent-contrast: #1c2620;
+      --pink: #ff9dc0;
+      --pink-hover: #ffb0cd;
+      --danger: #ff9dc0;
+      --danger-soft: #3d2333;
+      --header: #ff9dc0;
+      --shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+      --shadow-sm: 0 3px 12px rgba(0, 0, 0, 0.3);
     }
   }
   :root[data-theme="dark"] {
-    --bg: #12160f;
-    --panel: #1a2016;
-    --border: #33402c;
-    --border-soft: #263021;
-    --text: #e7ece2;
-    --muted: #98a390;
-    --accent: #6cbf6f;
-    --accent-hover: #7fd382;
-    --accent-soft: #23321f;
-    --accent-contrast: #12160f;
-    --danger: #e2916f;
-    --danger-soft: #3a2620;
-    --header: #a7d6a9;
+    --bg: #241823; --bg-accent: #1c2620; --panel: #2f202d; --border: #4d3348; --border-soft: #3a2837;
+    --text: #f5e6ef; --muted: #c99cb5; --accent: #6bdba0; --accent-hover: #82e6b2; --accent-soft: #253a2f;
+    --accent-contrast: #1c2620; --pink: #ff9dc0; --pink-hover: #ffb0cd; --danger: #ff9dc0; --danger-soft: #3d2333;
+    --header: #ff9dc0; --shadow: 0 6px 20px rgba(0, 0, 0, 0.35); --shadow-sm: 0 3px 12px rgba(0, 0, 0, 0.3);
   }
   :root[data-theme="light"] {
-    --bg: #f5f6f3;
-    --panel: #ffffff;
-    --border: #d9dcd3;
-    --border-soft: #eef0ea;
-    --text: #232520;
-    --muted: #6b6f65;
-    --accent: #2f6b3a;
-    --accent-hover: #255a2e;
-    --accent-soft: #e7f0e5;
-    --accent-contrast: #ffffff;
-    --danger: #b3432b;
-    --danger-soft: #f6e6e1;
-    --header: #1f3d24;
+    --bg: #fff6f9; --bg-accent: #eefaf3; --panel: #ffffff; --border: #ffd9e6; --border-soft: #fff0f5;
+    --text: #4a3540; --muted: #b48a9c; --accent: #5fcf9a; --accent-hover: #45bd85; --accent-soft: #e3f9ee;
+    --accent-contrast: #ffffff; --pink: #ff8fab; --pink-hover: #ff6f95; --danger: #ff8fab; --danger-soft: #ffe6ee;
+    --header: #ec6c96; --shadow: 0 6px 18px rgba(255, 143, 171, 0.18); --shadow-sm: 0 3px 10px rgba(255, 143, 171, 0.14);
   }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
   * { box-sizing: border-box; }
   body {
-    font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif;
-    background: var(--bg);
+    font-family: "Hiragino Maru Gothic ProN", "Yu Gothic", "Hiragino Sans", "Noto Sans JP", sans-serif;
+    background: linear-gradient(180deg, var(--bg) 0%, var(--bg-accent) 100%);
+    background-attachment: fixed;
     color: var(--text);
     margin: 0;
-    padding: 24px;
-    line-height: 1.5;
+    padding: 28px;
+    line-height: 1.6;
   }
-  h1 { font-size: 2rem; margin: 0 0 6px; color: var(--header); text-wrap: balance; }
-  .subtitle { color: var(--muted); margin: 0 0 24px; font-size: 1.15rem; }
+  h1 { font-size: 2.1rem; margin: 0 0 6px; color: var(--header); text-wrap: balance; }
+  .subtitle { color: var(--muted); margin: 0 0 24px; font-size: 1.1rem; }
   .container { max-width: 1180px; margin: 0 auto; }
   .global-bar {
     display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
-    padding: 16px 18px; margin-bottom: 20px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 18px;
+    padding: 16px 20px; margin-bottom: 20px; box-shadow: var(--shadow-sm);
   }
   .global-bar label { font-size: 1.05rem; color: var(--muted); }
   .global-bar input[type=number] { width: 100px; }
-  .mode-toggle { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .mode-toggle { display: inline-flex; border: 2px solid var(--border); border-radius: 999px; overflow: hidden; }
   .mode-toggle button {
-    border: none; border-radius: 0; padding: 12px 20px; font-size: 1.1rem; background: var(--panel); color: var(--text);
+    border: none; border-radius: 0; padding: 12px 22px; font-size: 1.1rem; font-weight: 600;
+    background: var(--panel); color: var(--text); transition: background 0.15s ease, color 0.15s ease;
   }
-  .mode-toggle button + button { border-left: 1px solid var(--border); }
-  .mode-toggle button.active { background: var(--accent); color: var(--accent-contrast); }
+  .mode-toggle button + button { border-left: 2px solid var(--border); }
+  .mode-toggle button.active { background: var(--pink); color: #ffffff; }
   .mode-toggle button:hover:not(.active) { background: var(--accent-soft); }
-  .mode-desc { color: var(--muted); font-size: 1.05rem; }
+  .mode-desc { color: var(--muted); font-size: 1.02rem; }
   input, select {
-    font-family: inherit; font-size: 1.15rem; padding: 9px 11px;
-    border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: var(--text);
+    font-family: inherit; font-size: 1.15rem; padding: 9px 12px;
+    border: 2px solid var(--border); border-radius: 12px; background: var(--panel); color: var(--text);
+    transition: border-color 0.15s ease;
   }
-  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  input:focus, select:focus { outline: none; border-color: var(--pink); box-shadow: 0 0 0 3px var(--danger-soft); }
   button {
-    font-family: inherit; font-size: 1.1rem; cursor: pointer;
-    border: 1px solid var(--border); border-radius: 6px; background: var(--panel);
-    padding: 10px 18px; color: var(--text);
+    font-family: inherit; font-size: 1.08rem; font-weight: 600; cursor: pointer;
+    border: 2px solid var(--border); border-radius: 999px; background: var(--panel);
+    padding: 10px 20px; color: var(--text); transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease;
   }
-  button:hover { background: var(--accent-soft); border-color: var(--accent); }
-  button:focus-visible, .mode-toggle button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button:hover { background: var(--accent-soft); border-color: var(--accent); transform: translateY(-1px); }
+  button:active { transform: translateY(0); }
+  button:focus-visible, .mode-toggle button:focus-visible { outline: 3px solid var(--pink); outline-offset: 2px; }
   .btn-primary { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
   .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
   .btn-danger { color: var(--danger); }
   .btn-danger:hover { background: var(--danger-soft); border-color: var(--danger); }
   .site-card {
-    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
-    padding: 20px; margin-bottom: 20px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 22px;
+    padding: 22px; margin-bottom: 20px; box-shadow: var(--shadow);
   }
   .site-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
-  .site-head input[type=text] { font-size: 1.3rem; font-weight: 600; flex: 1; min-width: 200px; }
+  .site-head input[type=text] { font-size: 1.3rem; font-weight: 700; flex: 1; min-width: 200px; }
   table { border-collapse: collapse; width: 100%; font-size: 1.1rem; }
   thead th {
-    text-align: left; color: var(--muted); font-weight: 600; font-size: 0.95rem;
-    padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap;
+    text-align: left; color: var(--muted); font-weight: 700; font-size: 0.9rem;
+    padding: 8px 10px; border-bottom: 2px solid var(--border-soft); white-space: nowrap;
   }
   tbody td { padding: 10px 10px; vertical-align: middle; border-bottom: 1px solid var(--border-soft); font-variant-numeric: tabular-nums; }
   tbody tr:last-child td { border-bottom: none; }
@@ -128,14 +125,17 @@
   .qty-pair input { width: 68px; }
   .row-actions { text-align: center; }
   .site-summary {
-    display: flex; gap: 32px; flex-wrap: wrap; margin-top: 16px; padding-top: 14px;
-    border-top: 1px dashed var(--border); font-size: 1.05rem;
+    display: flex; gap: 20px; flex-wrap: wrap; margin-top: 16px; padding-top: 16px;
+    border-top: 2px dashed var(--border); font-size: 1.05rem;
+  }
+  .site-summary .stat {
+    background: var(--accent-soft); border-radius: 16px; padding: 10px 18px; min-width: 140px;
   }
   .site-summary .stat b { display: block; font-size: 1.6rem; color: var(--header); font-variant-numeric: tabular-nums; }
-  .site-summary .stat span { color: var(--muted); font-size: 0.95rem; }
+  .site-summary .stat span { color: var(--muted); font-size: 0.92rem; }
   .add-row-btn { margin-top: 10px; }
   .toolbar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-  .note { color: var(--muted); font-size: 0.95rem; margin-top: 10px; }
+  .note { color: var(--muted); font-size: 0.92rem; margin-top: 10px; }
   select.type-select { min-width: 110px; }
   .custom-type-input { width: 100px; }
   footer { text-align: center; color: var(--muted); font-size: 0.9rem; margin-top: 30px; }
@@ -144,7 +144,7 @@
 </head>
 <body>
 <div class="container">
-  <h1>廃棄物コネクト 案件量計算ツール</h1>
+  <h1>🗑️ 廃棄物コネクト 案件量計算ツール</h1>
   <p class="subtitle">ヒアリング内容（例：「45Lが1〜2袋/日、週5回、不燃物週2日」）を入力すると、月間の袋数・容量・概算料金を自動計算します。</p>
 
   <div class="global-bar">
@@ -238,7 +238,7 @@ function loadState() {
       return parsed;
     }
   } catch (e) { /* ignore */ }
-  return { mode: "simple", weeksPerMonth: 4.35, sites: [defaultSite("中野区の案件")] };
+  return { mode: "simple", weeksPerMonth: 4.35, sites: [defaultSite("株式会社サンプル")] };
 }
 
 function saveState() {
