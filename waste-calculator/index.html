@@ -76,33 +76,33 @@
     padding: 24px;
     line-height: 1.5;
   }
-  h1 { font-size: 1.4rem; margin: 0 0 4px; color: var(--header); text-wrap: balance; }
-  .subtitle { color: var(--muted); margin: 0 0 20px; font-size: 0.9rem; }
+  h1 { font-size: 2rem; margin: 0 0 6px; color: var(--header); text-wrap: balance; }
+  .subtitle { color: var(--muted); margin: 0 0 24px; font-size: 1.15rem; }
   .container { max-width: 1180px; margin: 0 auto; }
   .global-bar {
     display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
     background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
-    padding: 12px 16px; margin-bottom: 20px;
+    padding: 16px 18px; margin-bottom: 20px;
   }
-  .global-bar label { font-size: 0.85rem; color: var(--muted); }
-  .global-bar input[type=number] { width: 80px; }
+  .global-bar label { font-size: 1.05rem; color: var(--muted); }
+  .global-bar input[type=number] { width: 100px; }
   .mode-toggle { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
   .mode-toggle button {
-    border: none; border-radius: 0; padding: 7px 14px; font-size: 0.85rem; background: var(--panel); color: var(--text);
+    border: none; border-radius: 0; padding: 12px 20px; font-size: 1.1rem; background: var(--panel); color: var(--text);
   }
   .mode-toggle button + button { border-left: 1px solid var(--border); }
   .mode-toggle button.active { background: var(--accent); color: var(--accent-contrast); }
   .mode-toggle button:hover:not(.active) { background: var(--accent-soft); }
-  .mode-desc { color: var(--muted); font-size: 0.78rem; }
+  .mode-desc { color: var(--muted); font-size: 1.05rem; }
   input, select {
-    font-family: inherit; font-size: 0.9rem; padding: 5px 7px;
+    font-family: inherit; font-size: 1.15rem; padding: 9px 11px;
     border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: var(--text);
   }
   input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
   button {
-    font-family: inherit; font-size: 0.85rem; cursor: pointer;
+    font-family: inherit; font-size: 1.1rem; cursor: pointer;
     border: 1px solid var(--border); border-radius: 6px; background: var(--panel);
-    padding: 6px 12px; color: var(--text);
+    padding: 10px 18px; color: var(--text);
   }
   button:hover { background: var(--accent-soft); border-color: var(--accent); }
   button:focus-visible, .mode-toggle button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -112,33 +112,33 @@
   .btn-danger:hover { background: var(--danger-soft); border-color: var(--danger); }
   .site-card {
     background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
-    padding: 16px; margin-bottom: 20px;
+    padding: 20px; margin-bottom: 20px;
   }
-  .site-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-  .site-head input[type=text] { font-size: 1rem; font-weight: 600; flex: 1; min-width: 160px; }
-  table { border-collapse: collapse; width: 100%; font-size: 0.83rem; }
+  .site-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .site-head input[type=text] { font-size: 1.3rem; font-weight: 600; flex: 1; min-width: 200px; }
+  table { border-collapse: collapse; width: 100%; font-size: 1.1rem; }
   thead th {
-    text-align: left; color: var(--muted); font-weight: 600; font-size: 0.75rem;
-    padding: 4px 6px; border-bottom: 1px solid var(--border); white-space: nowrap;
+    text-align: left; color: var(--muted); font-weight: 600; font-size: 0.95rem;
+    padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap;
   }
-  tbody td { padding: 4px 6px; vertical-align: middle; border-bottom: 1px solid var(--border-soft); font-variant-numeric: tabular-nums; }
+  tbody td { padding: 10px 10px; vertical-align: middle; border-bottom: 1px solid var(--border-soft); font-variant-numeric: tabular-nums; }
   tbody tr:last-child td { border-bottom: none; }
   .num-col { text-align: right; }
-  .qty-pair { display: flex; align-items: center; gap: 4px; }
-  .qty-pair input { width: 48px; }
+  .qty-pair { display: flex; align-items: center; gap: 6px; }
+  .qty-pair input { width: 68px; }
   .row-actions { text-align: center; }
   .site-summary {
-    display: flex; gap: 24px; flex-wrap: wrap; margin-top: 12px; padding-top: 10px;
-    border-top: 1px dashed var(--border); font-size: 0.85rem;
+    display: flex; gap: 32px; flex-wrap: wrap; margin-top: 16px; padding-top: 14px;
+    border-top: 1px dashed var(--border); font-size: 1.05rem;
   }
-  .site-summary .stat b { display: block; font-size: 1.05rem; color: var(--header); font-variant-numeric: tabular-nums; }
-  .site-summary .stat span { color: var(--muted); font-size: 0.75rem; }
-  .add-row-btn { margin-top: 8px; }
+  .site-summary .stat b { display: block; font-size: 1.6rem; color: var(--header); font-variant-numeric: tabular-nums; }
+  .site-summary .stat span { color: var(--muted); font-size: 0.95rem; }
+  .add-row-btn { margin-top: 10px; }
   .toolbar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-  .note { color: var(--muted); font-size: 0.78rem; margin-top: 10px; }
-  select.type-select { min-width: 90px; }
-  .custom-type-input { width: 80px; }
-  footer { text-align: center; color: var(--muted); font-size: 0.75rem; margin-top: 30px; }
+  .note { color: var(--muted); font-size: 0.95rem; margin-top: 10px; }
+  select.type-select { min-width: 110px; }
+  .custom-type-input { width: 100px; }
+  footer { text-align: center; color: var(--muted); font-size: 0.9rem; margin-top: 30px; }
   .table-scroll { overflow-x: auto; }
 </style>
 </head>
@@ -428,7 +428,7 @@ function renderItemRow(site, item) {
   tr.innerHTML = isSimple ? `
     ${typeCell}
     ${qtyCell}
-    <td><input type="number" min="0" max="7" step="1" data-role="daysPerWeek" value="${item.daysPerWeek}" style="width:52px;"></td>
+    <td><input type="number" min="0" max="7" step="1" data-role="daysPerWeek" value="${item.daysPerWeek}" style="width:70px;"></td>
     ${monthlyCell}
     ${deleteCell}
   ` : `
@@ -447,11 +447,11 @@ function renderItemRow(site, item) {
     </td>
     ${qtyCell}
     <td>
-      <input type="number" min="0" max="7" step="1" data-role="daysPerWeek" value="${item.daysPerWeek}" ${item.freqMode === "week" ? "disabled" : ""} style="width:52px;">
+      <input type="number" min="0" max="7" step="1" data-role="daysPerWeek" value="${item.daysPerWeek}" ${item.freqMode === "week" ? "disabled" : ""} style="width:70px;">
     </td>
-    <td><input type="number" min="0" step="1" data-role="bagSize" value="${item.bagSize}" style="width:60px;" placeholder="-"></td>
-    <td><input type="number" min="0" step="0.01" data-role="weightPerUnit" value="${item.weightPerUnit}" style="width:60px;" placeholder="-"></td>
-    <td><input type="number" min="0" step="1" data-role="unitPrice" value="${item.unitPrice}" style="width:70px;" placeholder="-"></td>
+    <td><input type="number" min="0" step="1" data-role="bagSize" value="${item.bagSize}" style="width:80px;" placeholder="-"></td>
+    <td><input type="number" min="0" step="0.01" data-role="weightPerUnit" value="${item.weightPerUnit}" style="width:80px;" placeholder="-"></td>
+    <td><input type="number" min="0" step="1" data-role="unitPrice" value="${item.unitPrice}" style="width:90px;" placeholder="-"></td>
     ${monthlyCell}
     <td class="num-col">${fmt(c.monthlyVolumeL)}</td>
     <td class="num-col">${fmt(c.monthlyWeightKg)}</td>
