@@ -126,22 +126,42 @@ const STORAGE_KEY = "haikibutsu-connect-calc-v1";
 
 const TYPE_PRESETS = ["可燃ごみ", "生ごみ", "不燃ごみ", "瓶", "缶", "ペットボトル", "段ボール", "その他"];
 
+// 45L≈5kg・70L≈8kgの実測値から線形換算（可燃・不燃で共通）。段ボールは1枚≈0.3kgが目安。
+const PRICE_PRESETS = { "可燃ごみ": 40, "不燃ごみ": 100, "段ボール": 35 };
+
+function suggestWeightPerUnit(item) {
+  if (item.type === "段ボール") return 0.3;
+  if (item.unit === "袋") {
+    const L = Number(item.bagSize) || 0;
+    if (L <= 0) return "";
+    const kg = 0.12 * (L - 45) + 5;
+    return Math.max(0, Math.round(kg * 100) / 100);
+  }
+  return "";
+}
+
 function uid() { return Math.random().toString(36).slice(2, 10); }
 
 function defaultItem(type) {
-  const isCardboard = type === "段ボール";
-  return {
+  const t = type || "可燃ごみ";
+  const isCardboard = t === "段ボール";
+  const unit = isCardboard ? "枚" : "袋";
+  const bagSize = isCardboard ? "" : 45;
+  const item = {
     id: uid(),
-    type: type || "可燃ごみ",
+    type: t,
     customType: "",
-    unit: isCardboard ? "枚" : "袋",
+    unit,
     freqMode: "day",       // "day" = 袋/日 × 週の収集日数 / "week" = 週あたり直接量
     qtyMin: 1,
     qtyMax: 2,
     daysPerWeek: 5,
-    bagSize: isCardboard ? "" : 45,
-    unitPrice: ""
+    bagSize,
+    weightPerUnit: "",
+    unitPrice: PRICE_PRESETS[t] !== undefined ? PRICE_PRESETS[t] : ""
   };
+  item.weightPerUnit = suggestWeightPerUnit(item);
+  return item;
 }
 
 function defaultSite(name) {
@@ -199,21 +219,25 @@ function computeItem(item) {
   const bagSize = Number(item.bagSize) || 0;
   const monthlyVolumeL = bagSize > 0 ? monthlyAvg * bagSize : null;
 
-  const unitPrice = Number(item.unitPrice) || 0;
-  const monthlyCost = unitPrice > 0 ? monthlyAvg * unitPrice : null;
+  const weightPerUnit = Number(item.weightPerUnit) || 0;
+  const monthlyWeightKg = weightPerUnit > 0 ? monthlyAvg * weightPerUnit : null;
 
-  return { monthlyMin, monthlyMax, monthlyAvg, monthlyVolumeL, monthlyCost };
+  const unitPrice = Number(item.unitPrice) || 0;
+  const monthlyCost = (monthlyWeightKg !== null && unitPrice > 0) ? monthlyWeightKg * unitPrice : null;
+
+  return { monthlyMin, monthlyMax, monthlyAvg, monthlyVolumeL, monthlyWeightKg, monthlyCost };
 }
 
 function computeSite(site) {
-  let totalQty = 0, totalVolume = 0, totalCost = 0;
+  let totalQty = 0, totalVolume = 0, totalWeight = 0, totalCost = 0;
   site.items.forEach(item => {
     const c = computeItem(item);
     totalQty += c.monthlyAvg;
     if (c.monthlyVolumeL !== null) totalVolume += c.monthlyVolumeL;
+    if (c.monthlyWeightKg !== null) totalWeight += c.monthlyWeightKg;
     if (c.monthlyCost !== null) totalCost += c.monthlyCost;
   });
-  return { totalQty, totalVolume, totalCost };
+  return { totalQty, totalVolume, totalWeight, totalCost };
 }
 
 function fmt(n, digits = 1) {
@@ -228,7 +252,7 @@ function render() {
   document.getElementById("modeDetailBtn").classList.toggle("active", !isSimple);
   document.getElementById("modeDesc").textContent = isSimple
     ? "※種別・数量・頻度だけで月間袋数を計算します。容量や料金の試算は「詳細入力」で。"
-    : "※単位・袋サイズ・単価まで含めて、月間容量や概算料金も試算します。";
+    : "※重量(kg/個)は45L≈5kg・70L≈8kgの目安から自動算出（変更可）。段ボールは1枚≈0.3kgが既定値。単価は円/kgで入力してください。";
   renderSites();
   saveState();
 }
@@ -273,9 +297,11 @@ function renderSiteCard(site) {
         <th>1回あたり数量(min〜max)</th>
         <th>週の収集日数</th>
         <th>袋サイズ(L)</th>
-        <th>単価(円)</th>
+        <th>重量(kg/個)</th>
+        <th>単価(円/kg)</th>
         <th class="num-col">月間量(平均)</th>
         <th class="num-col">月間容量(L)</th>
+        <th class="num-col">月間重量(kg)</th>
         <th class="num-col">月間概算料金</th>
         <th></th>
       </tr>
@@ -303,6 +329,7 @@ function renderSiteCard(site) {
   ` : `
     <div class="stat"><b>${fmt(summary.totalQty)}</b><span>月間合計 個数（袋+枚）</span></div>
     <div class="stat"><b>${fmt(summary.totalVolume)}</b><span>月間合計 容量(L)</span></div>
+    <div class="stat"><b>${fmt(summary.totalWeight)}</b><span>月間合計 重量(kg)</span></div>
     <div class="stat"><b>${summary.totalCost > 0 ? "¥" + fmt(summary.totalCost, 0) : "-"}</b><span>月間概算料金（単価入力分のみ）</span></div>
   `;
   card.appendChild(summaryDiv);
@@ -368,9 +395,11 @@ function renderItemRow(site, item) {
       <input type="number" min="0" max="7" step="1" data-role="daysPerWeek" value="${item.daysPerWeek}" ${item.freqMode === "week" ? "disabled" : ""} style="width:52px;">
     </td>
     <td><input type="number" min="0" step="1" data-role="bagSize" value="${item.bagSize}" style="width:60px;" placeholder="-"></td>
+    <td><input type="number" min="0" step="0.01" data-role="weightPerUnit" value="${item.weightPerUnit}" style="width:60px;" placeholder="-"></td>
     <td><input type="number" min="0" step="1" data-role="unitPrice" value="${item.unitPrice}" style="width:70px;" placeholder="-"></td>
     ${monthlyCell}
     <td class="num-col">${fmt(c.monthlyVolumeL)}</td>
+    <td class="num-col">${fmt(c.monthlyWeightKg)}</td>
     <td class="num-col">${c.monthlyCost !== null ? "¥" + fmt(c.monthlyCost, 0) : "-"}</td>
     ${deleteCell}
   `;
@@ -378,6 +407,8 @@ function renderItemRow(site, item) {
   tr.querySelector('[data-role="type"]').addEventListener("change", (e) => {
     item.type = e.target.value;
     if (item.type === "段ボール") { item.unit = "枚"; }
+    item.weightPerUnit = suggestWeightPerUnit(item);
+    if (PRICE_PRESETS[item.type] !== undefined) item.unitPrice = PRICE_PRESETS[item.type];
     render();
   });
   const customInput = tr.querySelector('[data-role="customType"]');
@@ -385,7 +416,11 @@ function renderItemRow(site, item) {
     customInput.addEventListener("input", (e) => { item.customType = e.target.value; render(); });
   }
   const unitSelect = tr.querySelector('[data-role="unit"]');
-  if (unitSelect) unitSelect.addEventListener("change", (e) => { item.unit = e.target.value; render(); });
+  if (unitSelect) unitSelect.addEventListener("change", (e) => {
+    item.unit = e.target.value;
+    item.weightPerUnit = suggestWeightPerUnit(item);
+    render();
+  });
   const freqSelect = tr.querySelector('[data-role="freqMode"]');
   if (freqSelect) freqSelect.addEventListener("change", (e) => { item.freqMode = e.target.value; render(); });
   tr.querySelector('[data-role="qtyMin"]').addEventListener("input", (e) => { item.qtyMin = e.target.value; render(); });
@@ -396,7 +431,13 @@ function renderItemRow(site, item) {
     render();
   });
   const bagSizeInput = tr.querySelector('[data-role="bagSize"]');
-  if (bagSizeInput) bagSizeInput.addEventListener("input", (e) => { item.bagSize = e.target.value; render(); });
+  if (bagSizeInput) bagSizeInput.addEventListener("input", (e) => {
+    item.bagSize = e.target.value;
+    item.weightPerUnit = suggestWeightPerUnit(item);
+    render();
+  });
+  const weightInput = tr.querySelector('[data-role="weightPerUnit"]');
+  if (weightInput) weightInput.addEventListener("input", (e) => { item.weightPerUnit = e.target.value; render(); });
   const unitPriceInput = tr.querySelector('[data-role="unitPrice"]');
   if (unitPriceInput) unitPriceInput.addEventListener("input", (e) => { item.unitPrice = e.target.value; render(); });
   tr.querySelector('[data-role="delete-item"]').addEventListener("click", () => {
