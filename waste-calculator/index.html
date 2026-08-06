@@ -112,7 +112,7 @@
   </div>
 
   <div class="toolbar">
-    <button class="btn-primary" id="addSiteBtn">＋ ラボ（案件）を追加</button>
+    <button class="btn-primary" id="addSiteBtn">＋ 案件を追加</button>
     <button id="resetBtn" class="btn-danger">全データをクリア</button>
   </div>
 
@@ -167,7 +167,7 @@ function defaultItem(type) {
 function defaultSite(name) {
   return {
     id: uid(),
-    name: name || "新規ラボ",
+    name: name || "新規案件",
     items: [
       defaultItem("可燃ごみ"),
       defaultItem("不燃ごみ")
@@ -186,7 +186,7 @@ function loadState() {
       return parsed;
     }
   } catch (e) { /* ignore */ }
-  return { mode: "simple", weeksPerMonth: 4.35, sites: [defaultSite("中野区ラボ")] };
+  return { mode: "simple", weeksPerMonth: 4.35, sites: [defaultSite("中野区の案件")] };
 }
 
 function saveState() {
@@ -270,8 +270,8 @@ function renderSiteCard(site) {
   const head = document.createElement("div");
   head.className = "site-head";
   head.innerHTML = `
-    <input type="text" value="${escapeAttr(site.name)}" data-role="site-name" placeholder="ラボ名（例：新宿区新規ラボ）">
-    <button class="btn-danger" data-role="delete-site">ラボを削除</button>
+    <input type="text" value="${escapeAttr(site.name)}" data-role="site-name" placeholder="案件名（例：新宿区新規案件）">
+    <button class="btn-danger" data-role="delete-site">この案件を削除</button>
   `;
   card.appendChild(head);
 
@@ -456,7 +456,7 @@ function escapeAttr(s) { return escapeHtml(s); }
 document.getElementById("modeSimpleBtn").addEventListener("click", () => { state.mode = "simple"; render(); });
 document.getElementById("modeDetailBtn").addEventListener("click", () => { state.mode = "detailed"; render(); });
 document.getElementById("addSiteBtn").addEventListener("click", () => {
-  state.sites.push(defaultSite(`新規ラボ${state.sites.length + 1}`));
+  state.sites.push(defaultSite(`新規案件${state.sites.length + 1}`));
   render();
 });
 document.getElementById("weeksPerMonth").addEventListener("input", (e) => {
@@ -464,8 +464,8 @@ document.getElementById("weeksPerMonth").addEventListener("input", (e) => {
   render();
 });
 document.getElementById("resetBtn").addEventListener("click", () => {
-  if (!confirm("全てのラボ・データを削除して初期状態に戻します。よろしいですか？")) return;
-  state = { mode: state.mode, weeksPerMonth: 4.35, sites: [defaultSite("新規ラボ")] };
+  if (!confirm("全ての案件データを削除して初期状態に戻します。よろしいですか？")) return;
+  state = { mode: state.mode, weeksPerMonth: 4.35, sites: [defaultSite("新規案件")] };
   render();
 });
 
