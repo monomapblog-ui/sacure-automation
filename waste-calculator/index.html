@@ -80,7 +80,7 @@
     padding: 16px 20px; margin-bottom: 20px; box-shadow: var(--shadow-sm);
   }
   .global-bar label { font-size: 1.05rem; color: var(--muted); }
-  .global-bar input[type=number] { width: 100px; }
+  .global-bar input { width: 100px; }
   input, select {
     font-family: inherit; font-size: 1.15rem; padding: 9px 12px;
     border: 2px solid var(--border); border-radius: 12px; background: var(--panel); color: var(--text);
@@ -162,6 +162,44 @@
     font-size: 0.92rem; margin: 0 0 18px; text-align: left;
   }
   .back-btn { margin-bottom: 20px; }
+
+  /* 粗利益パネル */
+  .profit-panel {
+    margin-top: 16px; padding: 18px 20px; border-radius: 18px;
+    background: var(--accent-soft); border: 2px solid transparent; transition: background 0.15s ease, border-color 0.15s ease;
+  }
+  .profit-panel.alert { background: var(--danger-soft); border-color: var(--danger); }
+  .profit-alert-badge {
+    display: inline-block; background: var(--header); color: #fff; font-weight: 700;
+    padding: 4px 14px; border-radius: 999px; font-size: 0.85rem; margin-bottom: 10px;
+  }
+  .profit-inputs { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+  .profit-inputs label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; color: var(--muted); font-weight: 600; }
+  .profit-inputs input { width: 120px; }
+  .profit-stats { display: flex; gap: 24px; flex-wrap: wrap; }
+  .profit-stats .stat b { display: block; font-size: 1.35rem; color: var(--header); font-variant-numeric: tabular-nums; }
+  .profit-stats .stat span { color: var(--muted); font-size: 0.85rem; }
+  .profit-stats .stat.negative b { color: var(--header); }
+
+  /* 入力バリデーション */
+  .input-error { border-color: var(--header) !important; background: var(--danger-soft) !important; }
+  .field-error { color: var(--header); font-size: 0.78rem; margin-top: 2px; display: block; }
+
+  /* 見積前提条件 */
+  .terms-section { margin-top: 22px; text-align: left; }
+  .terms-section h3 { font-size: 1.05rem; color: var(--header); margin: 0 0 8px; }
+  .terms-section textarea {
+    width: 100%; min-height: 180px; font-family: inherit; font-size: 0.95rem; padding: 14px;
+    border-radius: 14px; border: 2px solid var(--border); background: var(--bg-accent); color: var(--text); resize: vertical;
+  }
+  .terms-actions { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 8px; }
+  .copy-feedback { color: var(--accent-hover); font-size: 0.9rem; font-weight: 700; }
+  .work-conditions-field { margin-top: 14px; }
+  .work-conditions-field label { display: block; font-size: 0.9rem; color: var(--muted); font-weight: 600; margin-bottom: 6px; }
+  .work-conditions-field textarea {
+    width: 100%; min-height: 70px; font-family: inherit; font-size: 1rem; padding: 10px 12px;
+    border-radius: 12px; border: 2px solid var(--border); background: var(--panel); color: var(--text); resize: vertical;
+  }
 </style>
 </head>
 <body>
@@ -176,7 +214,8 @@ const TYPE_PRESETS = ["可燃ごみ", "生ごみ", "不燃ごみ", "瓶", "缶",
 // 1個あたりの単価。入力画面には出さず、金額提示のときだけ内部で使う。
 const PRICE_PER_UNIT = { "可燃ごみ": 200, "不燃ごみ": 300, "段ボール": 35 };
 const SETUP_FEE = 3000;
-const MIN_MONTHLY_FEE = 5000;
+const DEFAULT_MIN_MONTHLY_FEE = 5000;
+const LOW_MARGIN_THRESHOLD = 20; // 粗利率(%)がこれ未満でアラート
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
 
@@ -196,6 +235,11 @@ function defaultSite(name) {
     id: uid(),
     name: name || "新規案件",
     includeSetupFee: true,
+    minMonthlyFee: DEFAULT_MIN_MONTHLY_FEE,
+    transportCost: "",
+    disposalCost: "",
+    otherCost: "",
+    workConditions: "",
     items: [
       defaultItem("可燃ごみ"),
       defaultItem("不燃ごみ")
@@ -205,12 +249,22 @@ function defaultSite(name) {
 
 let state = loadState();
 
+function migrateSite(site) {
+  if (site.minMonthlyFee === undefined) site.minMonthlyFee = DEFAULT_MIN_MONTHLY_FEE;
+  if (site.transportCost === undefined) site.transportCost = "";
+  if (site.disposalCost === undefined) site.disposalCost = "";
+  if (site.otherCost === undefined) site.otherCost = "";
+  if (site.workConditions === undefined) site.workConditions = "";
+  return site;
+}
+
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (!parsed.view) parsed.view = "list";
+      parsed.sites = (parsed.sites || []).map(migrateSite);
       return parsed;
     }
   } catch (e) { /* ignore */ }
@@ -221,16 +275,41 @@ function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
+// 数値入力の検証：空欄は許可、マイナス値や数値として解釈できない値はエラー扱いにする。
+// 計算には使わせず（0として扱う）、入力欄を赤く縁取りしてエラー文言を出す。
+function validateNumberField(rawValue, { min = 0, allowBlank = true, fallback = 0 } = {}) {
+  if (rawValue === "" || rawValue === null || rawValue === undefined) {
+    return allowBlank
+      ? { invalid: false, value: fallback }
+      : { invalid: true, message: "数値を入力してください", value: fallback };
+  }
+  const num = Number(rawValue);
+  if (Number.isNaN(num) || !Number.isFinite(num)) {
+    return { invalid: true, message: "数値を入力してください", value: fallback };
+  }
+  if (num < min) {
+    return { invalid: true, message: `${min}以上の値を入力してください`, value: fallback };
+  }
+  return { invalid: false, value: num };
+}
+
+function markFieldValidity(inputEl, result) {
+  inputEl.classList.toggle("input-error", result.invalid);
+  const container = inputEl.closest("td, label, .global-bar > div") || inputEl.parentElement;
+  const errorEl = container ? container.querySelector(".field-error") : null;
+  if (errorEl) errorEl.textContent = result.invalid ? result.message : "";
+}
+
 // monthly avg / min / max quantity for an item
 function computeItem(item) {
-  const weeks = state.weeksPerMonth;
-  const qtyMin = Number(item.qtyMin) || 0;
+  const weeks = validateNumberField(state.weeksPerMonth, { min: 0.01, allowBlank: false, fallback: 4.35 }).value;
+  const qtyMin = validateNumberField(item.qtyMin).value;
   // 最大値が未入力なら「範囲」ではなく最小値と同じ単一の数量として扱う
   const qtyMaxRaw = item.qtyMax;
   const hasMax = qtyMaxRaw !== "" && qtyMaxRaw !== null && qtyMaxRaw !== undefined && !Number.isNaN(Number(qtyMaxRaw));
-  const qtyMax = hasMax ? Number(qtyMaxRaw) : qtyMin;
+  const qtyMax = hasMax ? validateNumberField(qtyMaxRaw).value : qtyMin;
   const avg = (qtyMin + qtyMax) / 2;
-  const days = Number(item.daysPerWeek) || 0;
+  const days = validateNumberField(item.daysPerWeek).value;
 
   const monthlyMin = qtyMin * days * weeks;
   const monthlyMax = qtyMax * days * weeks;
@@ -259,11 +338,28 @@ function computeSite(site) {
       unpricedCount++;
     }
   });
-  const minimumApplied = totalCost < MIN_MONTHLY_FEE;
-  const monthlyCost = minimumApplied ? MIN_MONTHLY_FEE : totalCost;
+
+  const minMonthlyFee = validateNumberField(site.minMonthlyFee).value;
+  const minimumApplied = totalCost < minMonthlyFee;
+  const monthlyCost = minimumApplied ? minMonthlyFee : totalCost;
   const setupFee = site.includeSetupFee ? SETUP_FEE : 0;
   const quoteTotal = monthlyCost + setupFee;
-  return { totalQty, totalCost, monthlyCost, minimumApplied, setupFee, quoteTotal, breakdown, pricedCount, unpricedCount };
+
+  // 粗利益 = 売上（お客様への月額請求額） − 原価（運搬費＋処分費＋その他経費）
+  const transportCost = validateNumberField(site.transportCost).value;
+  const disposalCost = validateNumberField(site.disposalCost).value;
+  const otherCost = validateNumberField(site.otherCost).value;
+  const expenseTotal = transportCost + disposalCost + otherCost;
+  const revenue = monthlyCost;
+  const grossProfit = revenue - expenseTotal;
+  const marginPct = revenue > 0 ? (grossProfit / revenue) * 100 : (expenseTotal > 0 ? -100 : 0);
+  const isLowMargin = marginPct < LOW_MARGIN_THRESHOLD || grossProfit < 0;
+  const isDeficit = grossProfit < 0;
+
+  return {
+    totalQty, totalCost, monthlyCost, minimumApplied, minMonthlyFee, setupFee, quoteTotal, breakdown, pricedCount, unpricedCount,
+    expenseTotal, revenue, grossProfit, marginPct, isLowMargin, isDeficit
+  };
 }
 
 function fmt(n, digits = 1) {
@@ -272,7 +368,41 @@ function fmt(n, digits = 1) {
 }
 function yen(n) { return "¥" + n.toLocaleString("ja-JP", { maximumFractionDigits: 0 }); }
 
+// render()は毎回DOMを丸ごと作り直すため、そのままだと入力中の要素がフォーカスを失い、
+// 1文字打つたびに入力が止まってしまう。再描画の前後でフォーカス位置・カーソル位置を記録して復元する。
+function captureFocus() {
+  const active = document.activeElement;
+  if (!active || !active.dataset || !active.dataset.role) return null;
+  const siteCard = active.closest("[data-site-id]");
+  const itemRow = active.closest("[data-item-id]");
+  return {
+    role: active.dataset.role,
+    siteId: siteCard ? siteCard.dataset.siteId : null,
+    itemId: itemRow ? itemRow.dataset.itemId : null,
+    selectionStart: (typeof active.selectionStart === "number") ? active.selectionStart : null,
+    selectionEnd: (typeof active.selectionEnd === "number") ? active.selectionEnd : null
+  };
+}
+
+function restoreFocus(info) {
+  if (!info) return;
+  let scope = document;
+  if (info.siteId) {
+    scope = document.querySelector(`[data-site-id="${info.siteId}"]`) || document;
+  }
+  if (info.itemId && scope !== document) {
+    scope = scope.querySelector(`[data-item-id="${info.itemId}"]`) || scope;
+  }
+  const el = scope.querySelector(`[data-role="${info.role}"]`);
+  if (!el) return;
+  el.focus();
+  if (info.selectionStart !== null && typeof el.setSelectionRange === "function") {
+    try { el.setSelectionRange(info.selectionStart, info.selectionEnd); } catch (e) { /* ignore */ }
+  }
+}
+
 function render() {
+  const focusInfo = captureFocus();
   const app = document.getElementById("app");
   app.innerHTML = "";
   if (state.view === "quote") {
@@ -282,6 +412,7 @@ function render() {
   } else {
     app.appendChild(renderListScreen());
   }
+  restoreFocus(focusInfo);
   saveState();
 }
 
@@ -295,7 +426,8 @@ function renderListScreen() {
     <div class="global-bar">
       <div>
         <label>1ヶ月あたりの週数&nbsp;</label>
-        <input type="number" id="weeksPerMonth" step="0.01" min="1" value="${state.weeksPerMonth}">
+        <input type="text" inputmode="decimal" id="weeksPerMonth" data-role="weeksPerMonth" value="${state.weeksPerMonth}">
+        <span class="field-error"></span>
       </div>
       <span class="note" style="margin:0;">※既定値は365日/12ヶ月/7日で算出した平均週数です。必要に応じて調整してください。</span>
     </div>
@@ -311,10 +443,9 @@ function renderListScreen() {
   const sitesContainer = wrap.querySelector("#sitesContainer");
   state.sites.forEach(site => sitesContainer.appendChild(renderSiteCard(site)));
 
-  wrap.querySelector("#weeksPerMonth").addEventListener("input", (e) => {
-    state.weeksPerMonth = Number(e.target.value) || 4.35;
-    render();
-  });
+  const weeksEl = wrap.querySelector("#weeksPerMonth");
+  markFieldValidity(weeksEl, validateNumberField(state.weeksPerMonth, { min: 0.01, allowBlank: false, fallback: 4.35 }));
+  weeksEl.addEventListener("input", (e) => { state.weeksPerMonth = e.target.value; render(); });
   wrap.querySelector("#addSiteBtn").addEventListener("click", () => {
     state.sites.push(defaultSite(`新規案件${state.sites.length + 1}`));
     render();
@@ -331,6 +462,7 @@ function renderListScreen() {
 function renderSiteCard(site) {
   const card = document.createElement("div");
   card.className = "site-card";
+  card.dataset.siteId = site.id;
 
   const head = document.createElement("div");
   head.className = "site-head";
@@ -377,6 +509,45 @@ function renderSiteCard(site) {
   `;
   card.appendChild(summaryDiv);
 
+  const profitPanel = document.createElement("div");
+  profitPanel.className = "profit-panel" + (summary.isLowMargin ? " alert" : "");
+  profitPanel.innerHTML = `
+    ${summary.isLowMargin ? `<span class="profit-alert-badge">⚠ ${summary.isDeficit ? "赤字です" : "粗利率が低くなっています"}</span>` : ""}
+    <div class="profit-inputs">
+      <label>運搬費(円/月)
+        <input type="text" inputmode="decimal" data-role="transportCost" value="${escapeAttr(site.transportCost)}" placeholder="0">
+        <span class="field-error"></span>
+      </label>
+      <label>処分費(円/月)
+        <input type="text" inputmode="decimal" data-role="disposalCost" value="${escapeAttr(site.disposalCost)}" placeholder="0">
+        <span class="field-error"></span>
+      </label>
+      <label>その他経費(円/月)
+        <input type="text" inputmode="decimal" data-role="otherCost" value="${escapeAttr(site.otherCost)}" placeholder="0">
+        <span class="field-error"></span>
+      </label>
+      <label>最低基本料金(円/月)
+        <input type="text" inputmode="decimal" data-role="minMonthlyFee" value="${escapeAttr(site.minMonthlyFee)}">
+        <span class="field-error"></span>
+      </label>
+    </div>
+    <div class="profit-stats">
+      <div class="stat"><b>${yen(summary.revenue)}</b><span>売上合計（月額）</span></div>
+      <div class="stat"><b>${yen(summary.expenseTotal)}</b><span>原価合計</span></div>
+      <div class="stat"><b>${yen(summary.grossProfit)}</b><span>粗利益額</span></div>
+      <div class="stat"><b>${summary.marginPct.toFixed(1)}%</b><span>粗利率（${LOW_MARGIN_THRESHOLD}%未満で警告）</span></div>
+    </div>
+  `;
+  card.appendChild(profitPanel);
+
+  const workConditionsDiv = document.createElement("div");
+  workConditionsDiv.className = "work-conditions-field";
+  workConditionsDiv.innerHTML = `
+    <label>作業条件・特記事項（見積前提条件に反映されます）</label>
+    <textarea data-role="workConditions" placeholder="例：出入口に段差あり、夜間収集希望、駐車スペース確保が必要　など">${escapeHtml(site.workConditions)}</textarea>
+  `;
+  card.appendChild(workConditionsDiv);
+
   const actions = document.createElement("div");
   actions.className = "card-actions";
   actions.innerHTML = `<button class="btn-quote" data-role="show-quote">💰 金額提示</button>`;
@@ -397,11 +568,25 @@ function renderSiteCard(site) {
     render();
   });
 
+  ["transportCost", "disposalCost", "otherCost"].forEach(role => {
+    const el = profitPanel.querySelector(`[data-role="${role}"]`);
+    markFieldValidity(el, validateNumberField(site[role]));
+    el.addEventListener("input", (e) => { site[role] = e.target.value; render(); });
+  });
+  const minFeeEl = profitPanel.querySelector('[data-role="minMonthlyFee"]');
+  markFieldValidity(minFeeEl, validateNumberField(site.minMonthlyFee, { min: 0, allowBlank: false, fallback: DEFAULT_MIN_MONTHLY_FEE }));
+  minFeeEl.addEventListener("input", (e) => { site.minMonthlyFee = e.target.value; render(); });
+  workConditionsDiv.querySelector('[data-role="workConditions"]').addEventListener("input", (e) => {
+    site.workConditions = e.target.value;
+    saveState();
+  });
+
   return card;
 }
 
 function renderItemRow(site, item) {
   const tr = document.createElement("tr");
+  tr.dataset.itemId = item.id;
   const c = computeItem(item);
   const isCustom = item.type === "その他";
 
@@ -414,11 +599,15 @@ function renderItemRow(site, item) {
     </td>
     <td>
       <div class="qty-pair">
-        <input type="number" min="0" step="0.5" data-role="qtyMin" value="${item.qtyMin}"> 〜
-        <input type="number" min="0" step="0.5" data-role="qtyMax" value="${item.qtyMax}" placeholder="－" title="数量が1つだけの場合は空欄でOK（最小値のみで計算します）">
+        <input type="text" inputmode="decimal" data-role="qtyMin" value="${item.qtyMin}"> 〜
+        <input type="text" inputmode="decimal" data-role="qtyMax" value="${item.qtyMax}" placeholder="－" title="数量が1つだけの場合は空欄でOK（最小値のみで計算します）">
       </div>
+      <span class="field-error"></span>
     </td>
-    <td><input type="number" min="0" max="7" step="1" data-role="daysPerWeek" value="${item.daysPerWeek}" style="width:70px;"></td>
+    <td>
+      <input type="text" inputmode="numeric" data-role="daysPerWeek" value="${item.daysPerWeek}" style="width:70px;">
+      <span class="field-error"></span>
+    </td>
     <td class="num-col">${fmt(c.monthlyAvg)}<br><span class="note" style="margin:0;">(${fmt(c.monthlyMin)}〜${fmt(c.monthlyMax)})</span></td>
     <td class="row-actions"><button class="btn-danger" data-role="delete-item" title="削除">×</button></td>
   `;
@@ -431,15 +620,74 @@ function renderItemRow(site, item) {
   if (customInput) {
     customInput.addEventListener("input", (e) => { item.customType = e.target.value; render(); });
   }
-  tr.querySelector('[data-role="qtyMin"]').addEventListener("input", (e) => { item.qtyMin = e.target.value; render(); });
-  tr.querySelector('[data-role="qtyMax"]').addEventListener("input", (e) => { item.qtyMax = e.target.value; render(); });
-  tr.querySelector('[data-role="daysPerWeek"]').addEventListener("input", (e) => { item.daysPerWeek = e.target.value; render(); });
+  const qtyMinEl = tr.querySelector('[data-role="qtyMin"]');
+  const qtyMaxEl = tr.querySelector('[data-role="qtyMax"]');
+  const daysEl = tr.querySelector('[data-role="daysPerWeek"]');
+  // 再描画のたびに現在値で検証しなおし、エラー表示が消えないようにする
+  markFieldValidity(qtyMinEl, validateNumberField(item.qtyMin));
+  markFieldValidity(qtyMaxEl, validateNumberField(item.qtyMax));
+  markFieldValidity(daysEl, validateNumberField(item.daysPerWeek));
+  qtyMinEl.addEventListener("input", (e) => { item.qtyMin = e.target.value; render(); });
+  qtyMaxEl.addEventListener("input", (e) => { item.qtyMax = e.target.value; render(); });
+  daysEl.addEventListener("input", (e) => { item.daysPerWeek = e.target.value; render(); });
   tr.querySelector('[data-role="delete-item"]').addEventListener("click", () => {
     site.items = site.items.filter(i => i.id !== item.id);
     render();
   });
 
   return tr;
+}
+
+// 契約時のトラブル防止のための「見積前提条件」文面を、入力済みの項目から自動で組み立てる。
+function generateTermsText(site) {
+  const lines = [];
+  lines.push("【お見積り前提条件】");
+  lines.push(`案件名：${site.name || "(未入力)"}`);
+  lines.push("下記の内容を前提として、本お見積りを算定しております。");
+  lines.push("");
+  if (site.items.length) {
+    site.items.forEach(item => {
+      const c = computeItem(item);
+      const label = itemLabel(item);
+      const hasMax = item.qtyMax !== "" && item.qtyMax !== null && item.qtyMax !== undefined && !Number.isNaN(Number(item.qtyMax));
+      const qtyText = hasMax && String(item.qtyMax) !== String(item.qtyMin) ? `${item.qtyMin}〜${item.qtyMax}` : `${item.qtyMin}`;
+      lines.push(`・${label}：1回あたり${qtyText}個、週${item.daysPerWeek}回収集（月間想定 ${fmt(c.monthlyAvg)}個）`);
+    });
+  } else {
+    lines.push("・（品目が登録されていません）");
+  }
+  lines.push("");
+  if (site.workConditions && site.workConditions.trim()) {
+    lines.push("【作業条件・特記事項】");
+    lines.push(site.workConditions.trim());
+    lines.push("");
+  }
+  lines.push("実際の排出量が上記の想定数量を大きく上回る場合、または収集頻度・排出場所などの条件に変更が生じた場合は、");
+  lines.push("別途お見積りを再算定させていただく場合がございますので、あらかじめご了承ください。");
+  return lines.join("\n");
+}
+
+async function copyTextToClipboard(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (e) { /* フォールバックへ */ }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    return ok;
+  } catch (e) {
+    return false;
+  }
 }
 
 function renderQuoteScreen(site) {
@@ -454,12 +702,14 @@ function renderQuoteScreen(site) {
     : `<div>単価が設定されている種別がありません</div>`;
 
   const minimumHtml = summary.minimumApplied
-    ? `<div>内訳合計 ${yen(summary.totalCost)} → 最低月額 ${yen(MIN_MONTHLY_FEE)} を適用</div>`
+    ? `<div>内訳合計 ${yen(summary.totalCost)} → 最低月額 ${yen(summary.minMonthlyFee)} を適用</div>`
     : "";
 
   const warningHtml = summary.unpricedCount > 0
     ? `<div class="quote-warning">※このうち ${summary.unpricedCount} 種別は単価未設定のため金額に含まれていません。金額をご案内する前に必ず内訳をご確認ください。</div>`
     : "";
+
+  const termsText = generateTermsText(site);
 
   wrap.innerHTML = `
     <button class="back-btn" data-role="back">← 入力画面に戻る</button>
@@ -477,6 +727,14 @@ function renderQuoteScreen(site) {
         <input type="checkbox" data-role="setupFee" ${site.includeSetupFee ? "checked" : ""}>
         初回手数料（¥3,000）を含める
       </label>
+      <div class="terms-section">
+        <h3>見積前提条件（コピーしてお客様への文面にお使いください）</h3>
+        <textarea data-role="termsText" readonly>${escapeHtml(termsText)}</textarea>
+        <div class="terms-actions">
+          <span class="copy-feedback" data-role="copyFeedback"></span>
+          <button data-role="copyTerms">📋 コピーする</button>
+        </div>
+      </div>
     </div>
   `;
 
@@ -487,6 +745,12 @@ function renderQuoteScreen(site) {
   wrap.querySelector('[data-role="setupFee"]').addEventListener("change", (e) => {
     site.includeSetupFee = e.target.checked;
     render();
+  });
+  wrap.querySelector('[data-role="copyTerms"]').addEventListener("click", async (e) => {
+    const ok = await copyTextToClipboard(termsText);
+    const feedback = wrap.querySelector('[data-role="copyFeedback"]');
+    feedback.textContent = ok ? "コピーしました！" : "コピーできませんでした。手動で選択してください。";
+    setTimeout(() => { feedback.textContent = ""; }, 2500);
   });
 
   frag.appendChild(wrap);
