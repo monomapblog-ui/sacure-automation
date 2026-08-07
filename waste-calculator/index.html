@@ -176,6 +176,7 @@ const TYPE_PRESETS = ["可燃ごみ", "生ごみ", "不燃ごみ", "瓶", "缶",
 // 1個あたりの単価。入力画面には出さず、金額提示のときだけ内部で使う。
 const PRICE_PER_UNIT = { "可燃ごみ": 200, "不燃ごみ": 300, "段ボール": 35 };
 const SETUP_FEE = 3000;
+const MIN_MONTHLY_FEE = 10000;
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
 
@@ -258,9 +259,11 @@ function computeSite(site) {
       unpricedCount++;
     }
   });
+  const minimumApplied = totalCost < MIN_MONTHLY_FEE;
+  const monthlyCost = minimumApplied ? MIN_MONTHLY_FEE : totalCost;
   const setupFee = site.includeSetupFee ? SETUP_FEE : 0;
-  const quoteTotal = totalCost + setupFee;
-  return { totalQty, totalCost, setupFee, quoteTotal, breakdown, pricedCount, unpricedCount };
+  const quoteTotal = monthlyCost + setupFee;
+  return { totalQty, totalCost, monthlyCost, minimumApplied, setupFee, quoteTotal, breakdown, pricedCount, unpricedCount };
 }
 
 function fmt(n, digits = 1) {
@@ -450,6 +453,10 @@ function renderQuoteScreen(site) {
     ? summary.breakdown.map(b => `<div>${escapeHtml(b.label)}　${fmt(b.qty)}個 × ${yen(b.unitPrice)}　＝　${yen(b.cost)}</div>`).join("")
     : `<div>単価が設定されている種別がありません</div>`;
 
+  const minimumHtml = summary.minimumApplied
+    ? `<div>内訳合計 ${yen(summary.totalCost)} → 最低月額 ${yen(MIN_MONTHLY_FEE)} を適用</div>`
+    : "";
+
   const warningHtml = summary.unpricedCount > 0
     ? `<div class="quote-warning">※このうち ${summary.unpricedCount} 種別は単価未設定のため金額に含まれていません。金額をご案内する前に必ず内訳をご確認ください。</div>`
     : "";
@@ -462,6 +469,7 @@ function renderQuoteScreen(site) {
       <div class="quote-amount-big">${yen(summary.quoteTotal)}</div>
       <div class="quote-breakdown">
         ${breakdownHtml}
+        ${minimumHtml}
         ${site.includeSetupFee ? `<div>初回手数料　＋${yen(SETUP_FEE)}</div>` : ""}
       </div>
       ${warningHtml}
