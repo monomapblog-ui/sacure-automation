@@ -190,6 +190,20 @@
     width: 100%; min-height: 70px; font-family: inherit; font-size: 1rem; padding: 10px 12px;
     border-radius: 12px; border: 2px solid var(--border); background: var(--panel); color: var(--text); resize: vertical;
   }
+
+  /* 使い方・単価表 */
+  .guide-screen {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 22px;
+    padding: 28px 30px; box-shadow: var(--shadow); text-align: left;
+  }
+  .guide-screen h2 { font-size: 1.25rem; color: var(--header); margin: 24px 0 12px; }
+  .guide-screen h2:first-child { margin-top: 0; }
+  .guide-steps { margin: 0; padding-left: 1.4em; }
+  .guide-steps li { margin-bottom: 10px; line-height: 1.7; }
+  .guide-price-table { font-size: 1rem; }
+  .guide-price-table th, .guide-price-table td { padding: 8px 12px; }
+  .guide-price-table thead th { background: var(--accent-soft); border-bottom: none; }
+  .guide-price-table tbody tr:nth-child(odd) { background: var(--bg-accent); }
 </style>
 </head>
 <body>
@@ -200,9 +214,32 @@ const STORAGE_KEY = "haikibutsu-connect-calc-v1";
 
 const TYPE_PRESETS = ["可燃ごみ", "生ごみ", "不燃ごみ", "瓶", "缶", "ペットボトル", "段ボール", "その他"];
 
-// 実際の確定見積り例（可燃40円/kg×5kg/袋、不燃100円/kg×3kg/袋、段ボール35円/kg×1kg/枚）から算出した
-// 1個あたりの単価。入力画面には出さず、金額提示のときだけ内部で使う。
-const PRICE_PER_UNIT = { "可燃ごみ": 200, "不燃ごみ": 300, "段ボール": 35 };
+// 袋サイズ・重量・単価の前提（詳しくは「使い方・単価表」画面にも一覧を表示）。
+// 可燃ごみ：45L≈5kg・70L≈8kg、不燃ごみ：45L≈3kg・70L≈5kg、段ボール：1枚≈1kg。
+// これらの重量に、可燃40円/kg・不燃100円/kg・段ボール35円/kgを掛けた金額が下記の単価。
+const BAG_SIZES = [45, 70];
+const BAG_SIZE_TYPES = ["可燃ごみ", "生ごみ", "不燃ごみ", "瓶", "缶", "ペットボトル"];
+const PRICE_PER_KG = { "可燃ごみ": 40, "不燃ごみ": 100, "段ボール": 35 };
+const WEIGHT_TABLE = {
+  "可燃ごみ": { 45: 5, 70: 8 },
+  "不燃ごみ": { 45: 3, 70: 5 }
+};
+const CARDBOARD_WEIGHT_PER_SHEET = 1; // kg/枚
+
+// 入力画面には出さず、金額提示のときだけ内部で使う1個あたりの単価テーブル。
+const PRICE_TABLE = {
+  "可燃ごみ": { 45: WEIGHT_TABLE["可燃ごみ"][45] * PRICE_PER_KG["可燃ごみ"], 70: WEIGHT_TABLE["可燃ごみ"][70] * PRICE_PER_KG["可燃ごみ"] },
+  "不燃ごみ": { 45: WEIGHT_TABLE["不燃ごみ"][45] * PRICE_PER_KG["不燃ごみ"], 70: WEIGHT_TABLE["不燃ごみ"][70] * PRICE_PER_KG["不燃ごみ"] },
+  "段ボール": CARDBOARD_WEIGHT_PER_SHEET * PRICE_PER_KG["段ボール"]
+};
+
+function getUnitPrice(item) {
+  const entry = PRICE_TABLE[item.type];
+  if (entry === undefined) return undefined;
+  if (typeof entry === "number") return entry;
+  return entry[item.bagSize];
+}
+
 const SETUP_FEE = 3000;
 const DEFAULT_MIN_MONTHLY_FEE = 5000;
 
@@ -213,6 +250,7 @@ function defaultItem(type) {
     id: uid(),
     type: type || "可燃ごみ",
     customType: "",
+    bagSize: 45,
     qtyMin: 1,
     qtyMax: 2,
     daysPerWeek: 5
@@ -238,6 +276,9 @@ let state = loadState();
 function migrateSite(site) {
   if (site.minMonthlyFee === undefined) site.minMonthlyFee = DEFAULT_MIN_MONTHLY_FEE;
   if (site.workConditions === undefined) site.workConditions = "";
+  (site.items || []).forEach(item => {
+    if (item.bagSize === undefined) item.bagSize = 45;
+  });
   return site;
 }
 
@@ -301,8 +342,26 @@ function computeItem(item) {
   return { monthlyMin, monthlyMax, monthlyAvg };
 }
 
-function itemLabel(item) {
+function itemLabelPlain(item) {
   return item.type === "その他" ? (item.customType || "その他") : item.type;
+}
+
+function itemLabel(item) {
+  const base = itemLabelPlain(item);
+  return BAG_SIZE_TYPES.includes(item.type) ? `${base}(${item.bagSize}L)` : base;
+}
+
+// 種別・袋サイズから、社内共有メール向けの「1kg◯円、月◯袋想定(1袋◯kgの場合)」を組み立てるための重量・単価情報。
+function getPriceDetail(item) {
+  const pricePerKg = PRICE_PER_KG[item.type];
+  if (pricePerKg === undefined) return null;
+  if (item.type === "段ボール") {
+    return { pricePerKg, weightPerUnit: CARDBOARD_WEIGHT_PER_SHEET, unitLabel: "枚" };
+  }
+  if (WEIGHT_TABLE[item.type]) {
+    return { pricePerKg, weightPerUnit: WEIGHT_TABLE[item.type][item.bagSize], unitLabel: "袋" };
+  }
+  return null;
 }
 
 function computeSite(site) {
@@ -311,7 +370,7 @@ function computeSite(site) {
   site.items.forEach(item => {
     const monthlyAvg = computeItem(item).monthlyAvg;
     totalQty += monthlyAvg;
-    const unitPrice = PRICE_PER_UNIT[item.type];
+    const unitPrice = getUnitPrice(item);
     if (unitPrice !== undefined) {
       const cost = monthlyAvg * unitPrice;
       totalCost += cost;
@@ -378,6 +437,8 @@ function render() {
     const site = state.sites.find(s => s.id === state.activeSiteId);
     if (!site) { state.view = "list"; saveState(); return render(); }
     app.appendChild(renderQuoteScreen(site));
+  } else if (state.view === "guide") {
+    app.appendChild(renderGuideScreen());
   } else {
     app.appendChild(renderListScreen());
   }
@@ -402,6 +463,7 @@ function renderListScreen() {
     </div>
     <div class="toolbar">
       <button class="btn-primary" id="addSiteBtn">＋ 案件を追加</button>
+      <button id="guideBtn">📖 使い方・単価表</button>
       <button id="resetBtn" class="btn-danger">全データをクリア</button>
     </div>
     <div id="sitesContainer"></div>
@@ -417,6 +479,10 @@ function renderListScreen() {
   weeksEl.addEventListener("input", (e) => { state.weeksPerMonth = e.target.value; render(); });
   wrap.querySelector("#addSiteBtn").addEventListener("click", () => {
     state.sites.push(defaultSite(`新規案件${state.sites.length + 1}`));
+    render();
+  });
+  wrap.querySelector("#guideBtn").addEventListener("click", () => {
+    state.view = "guide";
     render();
   });
   wrap.querySelector("#resetBtn").addEventListener("click", () => {
@@ -446,6 +512,7 @@ function renderSiteCard(site) {
     <thead>
       <tr>
         <th>種別</th>
+        <th>袋サイズ</th>
         <th>1回あたり数量(min〜max)</th>
         <th>頻度(週◯回)</th>
         <th class="num-col">月間量(平均)</th>
@@ -533,6 +600,7 @@ function renderItemRow(site, item) {
   tr.dataset.itemId = item.id;
   const c = computeItem(item);
   const isCustom = item.type === "その他";
+  const hasBagSize = BAG_SIZE_TYPES.includes(item.type);
 
   tr.innerHTML = `
     <td>
@@ -540,6 +608,13 @@ function renderItemRow(site, item) {
         ${TYPE_PRESETS.map(t => `<option value="${t}" ${t === item.type ? "selected" : ""}>${t}</option>`).join("")}
       </select>
       ${isCustom ? `<input type="text" class="custom-type-input" data-role="customType" value="${escapeAttr(item.customType)}" placeholder="種別名">` : ""}
+    </td>
+    <td>
+      ${hasBagSize ? `
+        <select data-role="bagSize">
+          ${BAG_SIZES.map(s => `<option value="${s}" ${s === item.bagSize ? "selected" : ""}>${s}L</option>`).join("")}
+        </select>
+      ` : `<span class="note" style="margin:0;">－</span>`}
     </td>
     <td>
       <div class="qty-pair">
@@ -563,6 +638,10 @@ function renderItemRow(site, item) {
   const customInput = tr.querySelector('[data-role="customType"]');
   if (customInput) {
     customInput.addEventListener("input", (e) => { item.customType = e.target.value; render(); });
+  }
+  const bagSizeEl = tr.querySelector('[data-role="bagSize"]');
+  if (bagSizeEl) {
+    bagSizeEl.addEventListener("change", (e) => { item.bagSize = Number(e.target.value); render(); });
   }
   const qtyMinEl = tr.querySelector('[data-role="qtyMin"]');
   const qtyMaxEl = tr.querySelector('[data-role="qtyMax"]');
@@ -611,6 +690,33 @@ function generateTermsText(site) {
   return lines.join("\n");
 }
 
+// 社内共有用の見積内訳文面（担当者が実際に使っている「1kg◯円、月◯袋想定(1袋◯kgの場合)」の形式）。
+function generateBreakdownEmailText(site) {
+  const summary = computeSite(site);
+  const lines = [];
+  lines.push(`件名：${site.name || "(未入力)"} 御見積のご案内`);
+  lines.push("");
+  lines.push("お世話になっております。");
+  lines.push(`${site.name || "(未入力)"}様の御見積の内訳を記載しましたのでご確認をお願いいたします。`);
+  lines.push("");
+  site.items.forEach(item => {
+    const detail = getPriceDetail(item);
+    if (!detail) return;
+    const monthlyQty = Math.round(computeItem(item).monthlyAvg);
+    lines.push(`${itemLabelPlain(item)}：1kg${detail.pricePerKg}円、月${monthlyQty}${detail.unitLabel}想定(1${detail.unitLabel}${detail.weightPerUnit}kgの場合)`);
+  });
+  if (site.includeSetupFee) {
+    lines.push(`初回手数料:${SETUP_FEE.toLocaleString("ja-JP")}円`);
+  }
+  lines.push("");
+  lines.push(`合計金額：${yen(summary.quoteTotal)}`);
+  if (summary.unpricedCount > 0) {
+    lines.push("");
+    lines.push(`※単価未設定の品目（${summary.unpricedCount}種別）は上記に含まれていません。`);
+  }
+  return lines.join("\n");
+}
+
 async function copyTextToClipboard(text) {
   try {
     if (navigator.clipboard && window.isSecureContext) {
@@ -654,6 +760,7 @@ function renderQuoteScreen(site) {
     : "";
 
   const termsText = generateTermsText(site);
+  const breakdownEmailText = generateBreakdownEmailText(site);
 
   wrap.innerHTML = `
     <button class="back-btn" data-role="back">← 入力画面に戻る</button>
@@ -679,6 +786,14 @@ function renderQuoteScreen(site) {
           <button data-role="copyTerms">📋 コピーする</button>
         </div>
       </div>
+      <div class="terms-section">
+        <h3>見積内訳メール文面（社内共有用）</h3>
+        <textarea data-role="breakdownEmailText" readonly>${escapeHtml(breakdownEmailText)}</textarea>
+        <div class="terms-actions">
+          <span class="copy-feedback" data-role="copyFeedback2"></span>
+          <button data-role="copyBreakdownEmail">📋 コピーする</button>
+        </div>
+      </div>
     </div>
   `;
 
@@ -695,6 +810,82 @@ function renderQuoteScreen(site) {
     const feedback = wrap.querySelector('[data-role="copyFeedback"]');
     feedback.textContent = ok ? "コピーしました！" : "コピーできませんでした。手動で選択してください。";
     setTimeout(() => { feedback.textContent = ""; }, 2500);
+  });
+  wrap.querySelector('[data-role="copyBreakdownEmail"]').addEventListener("click", async (e) => {
+    const ok = await copyTextToClipboard(breakdownEmailText);
+    const feedback = wrap.querySelector('[data-role="copyFeedback2"]');
+    feedback.textContent = ok ? "コピーしました！" : "コピーできませんでした。手動で選択してください。";
+    setTimeout(() => { feedback.textContent = ""; }, 2500);
+  });
+
+  frag.appendChild(wrap);
+  return frag;
+}
+
+function renderGuideScreen() {
+  const frag = document.createDocumentFragment();
+  const wrap = document.createElement("div");
+
+  const priceRows = [];
+  ["可燃ごみ", "不燃ごみ"].forEach(type => {
+    BAG_SIZES.forEach(size => {
+      const weight = WEIGHT_TABLE[type][size];
+      priceRows.push({ type, size: `${size}L`, weight: `${weight}kg`, perKg: `${PRICE_PER_KG[type]}円/kg`, unitPrice: PRICE_TABLE[type][size] });
+    });
+  });
+  priceRows.push({ type: "段ボール", size: "(1枚)", weight: `${CARDBOARD_WEIGHT_PER_SHEET}kg`, perKg: `${PRICE_PER_KG["段ボール"]}円/kg`, unitPrice: PRICE_TABLE["段ボール"] });
+
+  const priceTableHtml = priceRows.map(r => `
+    <tr>
+      <td>${escapeHtml(r.type)}</td>
+      <td>${escapeHtml(r.size)}</td>
+      <td class="num-col">${escapeHtml(r.weight)}</td>
+      <td class="num-col">${escapeHtml(r.perKg)}</td>
+      <td class="num-col">${yen(r.unitPrice)}</td>
+    </tr>
+  `).join("");
+
+  wrap.innerHTML = `
+    <button class="back-btn" data-role="back">← 入力画面に戻る</button>
+    <div class="guide-screen">
+      <h2>📖 使い方</h2>
+      <ol class="guide-steps">
+        <li>「＋ 案件を追加」でお客様の案件を1件作成し、案件名を入力します。</li>
+        <li>品目ごとに「種別」「袋サイズ（45L／70L）」「1回あたり数量」「頻度（週◯回）」を入力します。
+          数量が「1〜2袋」のように幅がある場合は両方、「2袋」のように1つだけの場合は数量maxを空欄にします。</li>
+        <li>必要に応じて「最低基本料金」「作業条件・特記事項」を編集します。</li>
+        <li>「💰 金額提示」ボタンを押すと、お客様にご案内する金額と見積前提条件の文面が表示されます。</li>
+      </ol>
+
+      <h2>💴 単価・重量表</h2>
+      <p class="note" style="margin:0 0 10px;">
+        袋の重量は実測値をもとにした目安です。「1個あたり単価」＝ 想定重量 × 単価(円/kg) を、金額提示の際に内部で使用しています。
+      </p>
+      <div class="table-scroll">
+        <table class="guide-price-table">
+          <thead>
+            <tr>
+              <th>種別</th>
+              <th>袋サイズ</th>
+              <th class="num-col">想定重量</th>
+              <th class="num-col">単価(円/kg)</th>
+              <th class="num-col">1個あたり単価</th>
+            </tr>
+          </thead>
+          <tbody>${priceTableHtml}</tbody>
+        </table>
+      </div>
+      <p class="note">
+        ・生ごみ／瓶／缶／ペットボトルは袋サイズを選べますが、単価が未確定のため金額計算には含まれません（単価が分かり次第、対応します）。<br>
+        ・初回手数料：¥${SETUP_FEE.toLocaleString("ja-JP")}（新規契約時、金額提示画面のチェックボックスでON/OFF可能）。<br>
+        ・最低基本料金：既定 ¥${DEFAULT_MIN_MONTHLY_FEE.toLocaleString("ja-JP")}。案件ごとに変更でき、計算した月額がこれを下回ると自動的に引き上がります。
+      </p>
+    </div>
+  `;
+
+  wrap.querySelector('[data-role="back"]').addEventListener("click", () => {
+    state.view = "list";
+    render();
   });
 
   frag.appendChild(wrap);
