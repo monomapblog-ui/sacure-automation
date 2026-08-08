@@ -6,111 +6,116 @@
 <title>廃棄物コネクト 案件量計算ツール</title>
 <style>
   :root {
-    --bg: #fff6f9;
-    --bg-accent: #eefaf3;
+    --bg: #f4f6f9;
+    --bg-accent: #eef1f6;
     --panel: #ffffff;
-    --border: #ffd9e6;
-    --border-soft: #fff0f5;
-    --text: #4a3540;
-    --muted: #b48a9c;
-    --accent: #5fcf9a;
-    --accent-hover: #45bd85;
-    --accent-soft: #e3f9ee;
+    --border: #d8dee6;
+    --border-soft: #e9ecf1;
+    --text: #202733;
+    --muted: #66707e;
+    --accent: #1f3a5f;
+    --accent-hover: #16304d;
+    --accent-soft: #e6ecf5;
     --accent-contrast: #ffffff;
-    --pink: #ff8fab;
-    --pink-hover: #ff6f95;
-    --danger: #ff8fab;
-    --danger-soft: #ffe6ee;
-    --header: #ec6c96;
-    --shadow: 0 6px 18px rgba(255, 143, 171, 0.18);
-    --shadow-sm: 0 3px 10px rgba(255, 143, 171, 0.14);
+    --accent2: #0d8f83;
+    --accent2-hover: #0b7a70;
+    --danger: #c0392b;
+    --danger-soft: #fbeae8;
+    --header: #1f3a5f;
+    --shadow: 0 4px 16px rgba(31, 58, 95, 0.09);
+    --shadow-sm: 0 2px 8px rgba(31, 58, 95, 0.07);
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #241823;
-      --bg-accent: #1c2620;
-      --panel: #2f202d;
-      --border: #4d3348;
-      --border-soft: #3a2837;
-      --text: #f5e6ef;
-      --muted: #c99cb5;
-      --accent: #6bdba0;
-      --accent-hover: #82e6b2;
-      --accent-soft: #253a2f;
-      --accent-contrast: #1c2620;
-      --pink: #ff9dc0;
-      --pink-hover: #ffb0cd;
-      --danger: #ff9dc0;
-      --danger-soft: #3d2333;
-      --header: #ff9dc0;
-      --shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
-      --shadow-sm: 0 3px 12px rgba(0, 0, 0, 0.3);
+      --bg: #10151d;
+      --bg-accent: #141b25;
+      --panel: #1a2230;
+      --border: #2d3947;
+      --border-soft: #232c3a;
+      --text: #e7ebf1;
+      --muted: #97a2b3;
+      --accent: #7ea3d6;
+      --accent-hover: #9bb9e2;
+      --accent-soft: #1f2e42;
+      --accent-contrast: #10151d;
+      --accent2: #2dd4bf;
+      --accent2-hover: #5eead4;
+      --danger: #ef8a83;
+      --danger-soft: #3a2624;
+      --header: #9bb9e2;
+      --shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+      --shadow-sm: 0 3px 12px rgba(0, 0, 0, 0.35);
     }
   }
   :root[data-theme="dark"] {
-    --bg: #241823; --bg-accent: #1c2620; --panel: #2f202d; --border: #4d3348; --border-soft: #3a2837;
-    --text: #f5e6ef; --muted: #c99cb5; --accent: #6bdba0; --accent-hover: #82e6b2; --accent-soft: #253a2f;
-    --accent-contrast: #1c2620; --pink: #ff9dc0; --pink-hover: #ffb0cd; --danger: #ff9dc0; --danger-soft: #3d2333;
-    --header: #ff9dc0; --shadow: 0 6px 20px rgba(0, 0, 0, 0.35); --shadow-sm: 0 3px 12px rgba(0, 0, 0, 0.3);
+    --bg: #10151d; --bg-accent: #141b25; --panel: #1a2230; --border: #2d3947; --border-soft: #232c3a;
+    --text: #e7ebf1; --muted: #97a2b3; --accent: #7ea3d6; --accent-hover: #9bb9e2; --accent-soft: #1f2e42;
+    --accent-contrast: #10151d; --accent2: #2dd4bf; --accent2-hover: #5eead4; --danger: #ef8a83; --danger-soft: #3a2624;
+    --header: #9bb9e2; --shadow: 0 6px 20px rgba(0, 0, 0, 0.4); --shadow-sm: 0 3px 12px rgba(0, 0, 0, 0.35);
   }
   :root[data-theme="light"] {
-    --bg: #fff6f9; --bg-accent: #eefaf3; --panel: #ffffff; --border: #ffd9e6; --border-soft: #fff0f5;
-    --text: #4a3540; --muted: #b48a9c; --accent: #5fcf9a; --accent-hover: #45bd85; --accent-soft: #e3f9ee;
-    --accent-contrast: #ffffff; --pink: #ff8fab; --pink-hover: #ff6f95; --danger: #ff8fab; --danger-soft: #ffe6ee;
-    --header: #ec6c96; --shadow: 0 6px 18px rgba(255, 143, 171, 0.18); --shadow-sm: 0 3px 10px rgba(255, 143, 171, 0.14);
+    --bg: #f4f6f9; --bg-accent: #eef1f6; --panel: #ffffff; --border: #d8dee6; --border-soft: #e9ecf1;
+    --text: #202733; --muted: #66707e; --accent: #1f3a5f; --accent-hover: #16304d; --accent-soft: #e6ecf5;
+    --accent-contrast: #ffffff; --accent2: #0d8f83; --accent2-hover: #0b7a70; --danger: #c0392b; --danger-soft: #fbeae8;
+    --header: #1f3a5f; --shadow: 0 4px 16px rgba(31, 58, 95, 0.09); --shadow-sm: 0 2px 8px rgba(31, 58, 95, 0.07);
   }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
   * { box-sizing: border-box; }
   body {
-    font-family: "Hiragino Maru Gothic ProN", "Yu Gothic", "Hiragino Sans", "Noto Sans JP", sans-serif;
-    background: linear-gradient(180deg, var(--bg) 0%, var(--bg-accent) 100%);
-    background-attachment: fixed;
+    font-family: "Hiragino Sans", "Yu Gothic Medium", "Yu Gothic", "Noto Sans JP", sans-serif;
+    background: var(--bg);
     color: var(--text);
     margin: 0;
     padding: 28px;
     line-height: 1.6;
   }
-  h1 { font-size: 2.1rem; margin: 0 0 6px; color: var(--header); text-wrap: balance; }
-  .subtitle { color: var(--muted); margin: 0 0 24px; font-size: 1.1rem; }
+  h1 { font-size: 1.5rem; font-weight: 700; margin: 0 0 4px; color: var(--header); text-wrap: balance; }
+  .subtitle { color: var(--muted); margin: 0 0 22px; font-size: 0.98rem; }
   .container { max-width: 1180px; margin: 0 auto; }
   .quote-container { max-width: 720px; margin: 0 auto; }
-  .global-bar {
-    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-    background: var(--panel); border: 1px solid var(--border); border-radius: 18px;
-    padding: 16px 20px; margin-bottom: 20px; box-shadow: var(--shadow-sm);
+  .advanced-settings {
+    background: var(--panel); border: 1px solid var(--border-soft); border-radius: 10px;
+    padding: 2px 16px; margin: 22px 0 20px; box-shadow: none;
   }
-  .global-bar label { font-size: 1.05rem; color: var(--muted); }
-  .global-bar input { width: 100px; }
+  .advanced-settings summary {
+    cursor: pointer; padding: 12px 0; font-size: 0.88rem; color: var(--muted); font-weight: 600;
+    list-style: none;
+  }
+  .advanced-settings summary::-webkit-details-marker { display: none; }
+  .advanced-settings summary::before { content: "▸ "; }
+  .advanced-settings[open] summary::before { content: "▾ "; }
+  .advanced-settings-body { padding: 2px 0 16px; }
+  .field-block { display: block; font-size: 0.9rem; color: var(--muted); font-weight: 600; }
+  .field-block input { display: block; margin-top: 6px; width: 100px; }
   input, select {
-    font-family: inherit; font-size: 1.15rem; padding: 9px 12px;
-    border: 2px solid var(--border); border-radius: 12px; background: var(--panel); color: var(--text);
+    font-family: inherit; font-size: 1.05rem; padding: 9px 12px;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text);
     transition: border-color 0.15s ease;
   }
-  input:focus, select:focus { outline: none; border-color: var(--pink); box-shadow: 0 0 0 3px var(--danger-soft); }
+  input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
   button {
-    font-family: inherit; font-size: 1.08rem; font-weight: 600; cursor: pointer;
-    border: 2px solid var(--border); border-radius: 999px; background: var(--panel);
-    padding: 10px 20px; color: var(--text); transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease;
+    font-family: inherit; font-size: 0.98rem; font-weight: 600; cursor: pointer;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--panel);
+    padding: 10px 18px; color: var(--text); transition: background 0.15s ease, border-color 0.15s ease;
   }
-  button:hover { background: var(--accent-soft); border-color: var(--accent); transform: translateY(-1px); }
-  button:active { transform: translateY(0); }
-  button:focus-visible { outline: 3px solid var(--pink); outline-offset: 2px; }
+  button:hover { background: var(--accent-soft); border-color: var(--accent); }
+  button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
   .btn-primary { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
   .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
   .btn-danger { color: var(--danger); }
   .btn-danger:hover { background: var(--danger-soft); border-color: var(--danger); }
   .btn-quote {
-    background: linear-gradient(135deg, var(--pink) 0%, var(--header) 100%); color: #ffffff; border-color: transparent;
-    font-size: 1.15rem; padding: 12px 26px;
+    background: var(--accent2); color: #ffffff; border-color: var(--accent2);
+    font-size: 1.05rem; padding: 12px 26px; font-weight: 700;
   }
-  .btn-quote:hover { filter: brightness(1.06); border-color: transparent; }
+  .btn-quote:hover { background: var(--accent2-hover); border-color: var(--accent2-hover); }
   .site-card {
-    background: var(--panel); border: 1px solid var(--border); border-radius: 22px;
-    padding: 22px; margin-bottom: 20px; box-shadow: var(--shadow);
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 22px; margin-bottom: 20px; box-shadow: var(--shadow-sm);
   }
   .site-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
-  .site-head input[type=text] { font-size: 1.3rem; font-weight: 700; flex: 1; min-width: 200px; }
-  table { border-collapse: collapse; width: 100%; font-size: 1.1rem; }
+  .site-head input[type=text] { font-size: 1.15rem; font-weight: 700; flex: 1; min-width: 200px; }
+  table { border-collapse: collapse; width: 100%; font-size: 1rem; }
   thead th {
     text-align: left; color: var(--muted); font-weight: 700; font-size: 0.9rem;
     padding: 8px 10px; border-bottom: 2px solid var(--border-soft); white-space: nowrap;
@@ -118,6 +123,9 @@
   tbody td { padding: 10px 10px; vertical-align: middle; border-bottom: 1px solid var(--border-soft); font-variant-numeric: tabular-nums; }
   tbody tr:last-child td { border-bottom: none; }
   .num-col { text-align: right; }
+  .monthly-qty-value { font-size: 1.2rem; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+  .monthly-qty-value .qty-unit { font-size: 0.78rem; font-weight: 600; color: var(--muted); margin-left: 2px; }
+  .qty-range-note { display: block; font-size: 0.8rem; }
   .qty-pair { display: flex; align-items: center; gap: 6px; }
   .qty-pair input { width: 68px; }
   .row-actions { text-align: center; }
@@ -126,10 +134,10 @@
     border-top: 2px dashed var(--border); font-size: 1.05rem;
   }
   .site-summary .stat {
-    background: var(--accent-soft); border-radius: 16px; padding: 10px 18px; min-width: 140px;
+    background: var(--accent-soft); border-radius: 10px; padding: 10px 18px; min-width: 140px;
   }
-  .site-summary .stat b { display: block; font-size: 1.6rem; color: var(--header); font-variant-numeric: tabular-nums; }
-  .site-summary .stat span { color: var(--muted); font-size: 0.92rem; }
+  .site-summary .stat b { display: block; font-size: 1.4rem; font-weight: 700; color: var(--header); font-variant-numeric: tabular-nums; }
+  .site-summary .stat span { color: var(--muted); font-size: 0.85rem; }
   .card-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; flex-wrap: wrap; gap: 12px; }
   .add-row-btn { margin-top: 10px; }
   .toolbar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -141,62 +149,62 @@
 
   /* 金額提示画面 */
   .quote-screen {
-    background: var(--panel); border: 1px solid var(--border); border-radius: 26px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
     padding: 40px 32px; box-shadow: var(--shadow); text-align: center;
   }
-  .quote-screen .quote-site-name { font-size: 1.3rem; font-weight: 700; color: var(--muted); margin-bottom: 4px; }
-  .quote-screen .quote-headline { font-size: 1.2rem; font-weight: 700; color: var(--header); margin: 0 0 18px; }
+  .quote-screen .quote-site-name { font-size: 1.1rem; font-weight: 700; color: var(--muted); margin-bottom: 4px; }
+  .quote-screen .quote-headline { font-size: 1rem; font-weight: 600; color: var(--muted); margin: 0 0 18px; }
   .quote-amount-big {
-    font-size: 4.2rem; font-weight: 800; color: var(--header); font-variant-numeric: tabular-nums;
+    font-size: 3.4rem; font-weight: 800; color: var(--accent2); font-variant-numeric: tabular-nums;
     line-height: 1.15; margin: 6px 0 10px;
   }
-  .quote-screen .quote-breakdown { font-size: 1rem; color: var(--muted); margin: 4px 0 20px; }
+  .quote-screen .quote-breakdown { font-size: 0.95rem; color: var(--muted); margin: 4px 0 20px; }
   .quote-screen .quote-breakdown div { margin: 2px 0; }
   .setup-fee-toggle {
-    display: inline-flex; align-items: center; gap: 10px; font-size: 1.02rem; font-weight: 600; color: var(--text);
-    background: var(--accent-soft); padding: 10px 18px; border-radius: 999px; cursor: pointer; margin-bottom: 22px;
+    display: inline-flex; align-items: center; gap: 10px; font-size: 0.95rem; font-weight: 600; color: var(--text);
+    background: var(--accent-soft); padding: 10px 18px; border-radius: 8px; cursor: pointer; margin-bottom: 22px;
   }
-  .setup-fee-toggle input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--pink); cursor: pointer; }
+  .setup-fee-toggle input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
   .quote-warning {
-    background: var(--danger-soft); color: var(--header); border-radius: 12px; padding: 10px 16px;
+    background: var(--danger-soft); color: var(--danger); border-radius: 8px; padding: 10px 16px;
     font-size: 0.92rem; margin: 0 0 18px; text-align: left;
   }
   .back-btn { margin-bottom: 20px; }
 
   /* 最低基本料金 */
   .min-fee-panel {
-    margin-top: 16px; padding: 14px 18px; border-radius: 16px; background: var(--accent-soft);
+    margin-top: 16px; padding: 14px 18px; border-radius: 10px; background: var(--accent-soft);
     display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
   }
   .min-fee-panel label { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--muted); font-weight: 600; }
   .min-fee-panel input { width: 120px; }
 
   /* 入力バリデーション */
-  .input-error { border-color: var(--header) !important; background: var(--danger-soft) !important; }
-  .field-error { color: var(--header); font-size: 0.78rem; margin-top: 2px; display: block; }
+  .input-error { border-color: var(--danger) !important; background: var(--danger-soft) !important; }
+  .field-error { color: var(--danger); font-size: 0.78rem; margin-top: 2px; display: block; }
 
   /* 見積前提条件 */
   .terms-section { margin-top: 22px; text-align: left; }
-  .terms-section h3 { font-size: 1.05rem; color: var(--header); margin: 0 0 8px; }
+  .terms-section h3 { font-size: 0.98rem; color: var(--header); margin: 0 0 8px; }
   .terms-section textarea {
-    width: 100%; min-height: 180px; font-family: inherit; font-size: 0.95rem; padding: 14px;
-    border-radius: 14px; border: 2px solid var(--border); background: var(--bg-accent); color: var(--text); resize: vertical;
+    width: 100%; min-height: 180px; font-family: inherit; font-size: 0.9rem; padding: 14px;
+    border-radius: 8px; border: 1px solid var(--border); background: var(--bg-accent); color: var(--text); resize: vertical;
   }
   .terms-actions { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 8px; }
-  .copy-feedback { color: var(--accent-hover); font-size: 0.9rem; font-weight: 700; }
+  .copy-feedback { color: var(--accent2); font-size: 0.9rem; font-weight: 700; }
   .work-conditions-field { margin-top: 14px; }
   .work-conditions-field label { display: block; font-size: 0.9rem; color: var(--muted); font-weight: 600; margin-bottom: 6px; }
   .work-conditions-field textarea {
     width: 100%; min-height: 70px; font-family: inherit; font-size: 1rem; padding: 10px 12px;
-    border-radius: 12px; border: 2px solid var(--border); background: var(--panel); color: var(--text); resize: vertical;
+    border-radius: 8px; border: 1px solid var(--border); background: var(--panel); color: var(--text); resize: vertical;
   }
 
   /* 使い方・単価表 */
   .guide-screen {
-    background: var(--panel); border: 1px solid var(--border); border-radius: 22px;
-    padding: 28px 30px; box-shadow: var(--shadow); text-align: left;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 28px 30px; box-shadow: var(--shadow-sm); text-align: left;
   }
-  .guide-screen h2 { font-size: 1.25rem; color: var(--header); margin: 24px 0 12px; }
+  .guide-screen h2 { font-size: 1.1rem; color: var(--header); margin: 24px 0 12px; }
   .guide-screen h2:first-child { margin-top: 0; }
   .guide-steps { margin: 0; padding-left: 1.4em; }
   .guide-steps li { margin-bottom: 10px; line-height: 1.7; }
@@ -272,6 +280,7 @@ function defaultSite(name) {
 }
 
 let state = loadState();
+let advancedSettingsOpen = false; // render()毎にDOMを作り直すため、開閉状態はここで別管理する
 
 function migrateSite(site) {
   if (site.minMonthlyFee === undefined) site.minMonthlyFee = DEFAULT_MIN_MONTHLY_FEE;
@@ -319,7 +328,7 @@ function validateNumberField(rawValue, { min = 0, allowBlank = true, fallback = 
 
 function markFieldValidity(inputEl, result) {
   inputEl.classList.toggle("input-error", result.invalid);
-  const container = inputEl.closest("td, label, .global-bar > div") || inputEl.parentElement;
+  const container = inputEl.closest("td, label") || inputEl.parentElement;
   const errorEl = container ? container.querySelector(".field-error") : null;
   if (errorEl) errorEl.textContent = result.invalid ? result.message : "";
 }
@@ -332,11 +341,14 @@ function computeItem(item) {
   const qtyMaxRaw = item.qtyMax;
   const hasMax = qtyMaxRaw !== "" && qtyMaxRaw !== null && qtyMaxRaw !== undefined && !Number.isNaN(Number(qtyMaxRaw));
   const qtyMax = hasMax ? validateNumberField(qtyMaxRaw).value : qtyMin;
+  // 表示用の範囲は常に小さい方〜大きい方の順にする（数量maxに数量min未満の値を入れても逆転表示にならないように）
+  const qtyLo = Math.min(qtyMin, qtyMax);
+  const qtyHi = Math.max(qtyMin, qtyMax);
   const avg = (qtyMin + qtyMax) / 2;
   const days = validateNumberField(item.daysPerWeek).value;
 
-  const monthlyMin = qtyMin * days * weeks;
-  const monthlyMax = qtyMax * days * weeks;
+  const monthlyMin = qtyLo * days * weeks;
+  const monthlyMax = qtyHi * days * weeks;
   const monthlyAvg = avg * days * weeks;
 
   return { monthlyMin, monthlyMax, monthlyAvg };
@@ -390,7 +402,7 @@ function computeSite(site) {
   return { totalQty, totalCost, monthlyCost, minimumApplied, minMonthlyFee, setupFee, quoteTotal, breakdown, pricedCount, unpricedCount };
 }
 
-function fmt(n, digits = 1) {
+function fmt(n, digits = 0) {
   if (n === null || n === undefined || Number.isNaN(n)) return "-";
   return n.toLocaleString("ja-JP", { minimumFractionDigits: 0, maximumFractionDigits: digits });
 }
@@ -451,22 +463,24 @@ function renderListScreen() {
   const wrap = document.createElement("div");
 
   wrap.innerHTML = `
-    <h1>🗑️ 廃棄物コネクト 案件量計算ツール</h1>
-    <p class="subtitle">ヒアリング内容（例：「45Lが1〜2袋/日、週5回、不燃物週2日」）を入力すると、月間の袋数と、お客様に提示する金額を計算します。</p>
-    <div class="global-bar">
-      <div>
-        <label>1ヶ月あたりの週数&nbsp;</label>
-        <input type="text" inputmode="decimal" id="weeksPerMonth" data-role="weeksPerMonth" value="${state.weeksPerMonth}">
-        <span class="field-error"></span>
-      </div>
-      <span class="note" style="margin:0;">※既定値は365日/12ヶ月/7日で算出した平均週数です。必要に応じて調整してください。</span>
-    </div>
+    <h1>廃棄物コネクト 案件量計算ツール</h1>
+    <p class="subtitle">案件名を入れて、ゴミの種類と袋数・回数を入れるだけ。金額は自動で計算します。</p>
     <div class="toolbar">
       <button class="btn-primary" id="addSiteBtn">＋ 案件を追加</button>
-      <button id="guideBtn">📖 使い方・単価表</button>
+      <button id="guideBtn">使い方・単価表</button>
       <button id="resetBtn" class="btn-danger">全データをクリア</button>
     </div>
     <div id="sitesContainer"></div>
+    <details class="advanced-settings" ${advancedSettingsOpen ? "open" : ""}>
+      <summary>詳細な計算設定（デフォルト：4.35週）</summary>
+      <div class="advanced-settings-body">
+        <label class="field-block">1ヶ月あたりの週数
+          <input type="text" inputmode="decimal" id="weeksPerMonth" data-role="weeksPerMonth" value="${state.weeksPerMonth}">
+          <span class="field-error"></span>
+        </label>
+        <p class="note" style="margin:8px 0 0;">※既定値は365日÷12ヶ月÷7日で算出した平均週数です。通常は変更不要です。必要な場合のみ調整してください。</p>
+      </div>
+    </details>
     <footer>廃棄物コネクト｜社内用 案件量計算ツール</footer>
   `;
   frag.appendChild(wrap);
@@ -477,6 +491,9 @@ function renderListScreen() {
   const weeksEl = wrap.querySelector("#weeksPerMonth");
   markFieldValidity(weeksEl, validateNumberField(state.weeksPerMonth, { min: 0.01, allowBlank: false, fallback: 4.35 }));
   weeksEl.addEventListener("input", (e) => { state.weeksPerMonth = e.target.value; render(); });
+  wrap.querySelector(".advanced-settings").addEventListener("toggle", (e) => {
+    advancedSettingsOpen = e.target.open;
+  });
   wrap.querySelector("#addSiteBtn").addEventListener("click", () => {
     state.sites.push(defaultSite(`新規案件${state.sites.length + 1}`));
     render();
@@ -515,7 +532,7 @@ function renderSiteCard(site) {
         <th>袋サイズ</th>
         <th>1回あたり数量(min〜max)</th>
         <th>頻度(週◯回)</th>
-        <th class="num-col">月間量(平均)</th>
+        <th class="num-col">月間量（目安）</th>
         <th></th>
       </tr>
     </thead>
@@ -601,6 +618,7 @@ function renderItemRow(site, item) {
   const c = computeItem(item);
   const isCustom = item.type === "その他";
   const hasBagSize = BAG_SIZE_TYPES.includes(item.type);
+  const showRange = Math.round(c.monthlyMin) !== Math.round(c.monthlyMax);
 
   tr.innerHTML = `
     <td>
@@ -627,7 +645,10 @@ function renderItemRow(site, item) {
       <input type="text" inputmode="numeric" data-role="daysPerWeek" value="${item.daysPerWeek}" style="width:70px;">
       <span class="field-error"></span>
     </td>
-    <td class="num-col">${fmt(c.monthlyAvg)}<br><span class="note" style="margin:0;">(${fmt(c.monthlyMin)}〜${fmt(c.monthlyMax)})</span></td>
+    <td class="num-col">
+      <div class="monthly-qty-value">${fmt(c.monthlyAvg)}<span class="qty-unit">個/月</span></div>
+      ${showRange ? `<span class="note qty-range-note">目安 ${fmt(c.monthlyMin)}〜${fmt(c.monthlyMax)}個</span>` : ""}
+    </td>
     <td class="row-actions"><button class="btn-danger" data-role="delete-item" title="削除">×</button></td>
   `;
 
