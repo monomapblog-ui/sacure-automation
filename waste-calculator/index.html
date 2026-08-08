@@ -323,7 +323,7 @@ function defaultItem(type) {
 function defaultSite(name) {
   return {
     id: uid(),
-    name: name || "新規案件",
+    name: name || "",
     includeSetupFee: true,
     minMonthlyFee: DEFAULT_MIN_MONTHLY_FEE,
     workConditions: "",
@@ -340,6 +340,7 @@ let advancedSettingsOpen = false; // render()毎にDOMを作り直すため、�
 function migrateSite(site) {
   if (site.minMonthlyFee === undefined) site.minMonthlyFee = DEFAULT_MIN_MONTHLY_FEE;
   if (site.workConditions === undefined) site.workConditions = "";
+  if (site.includeSetupFee === undefined) site.includeSetupFee = true;
   (site.items || []).forEach(item => {
     if (item.bagSize === undefined) item.bagSize = 45;
   });
@@ -356,7 +357,7 @@ function loadState() {
       return parsed;
     }
   } catch (e) { /* ignore */ }
-  return { view: "list", activeSiteId: null, weeksPerMonth: 4.35, sites: [defaultSite("株式会社サンプル")] };
+  return { view: "list", activeSiteId: null, weeksPerMonth: 4.35, sites: [defaultSite("")] };
 }
 
 function saveState() {
@@ -556,7 +557,7 @@ function renderListScreen() {
     advancedSettingsOpen = e.target.open;
   });
   wrap.querySelector("#addSiteBtn").addEventListener("click", () => {
-    state.sites.push(defaultSite(`新規案件${state.sites.length + 1}`));
+    state.sites.push(defaultSite(""));
     render();
   });
   wrap.querySelector("#guideBtn").addEventListener("click", () => {
@@ -565,7 +566,7 @@ function renderListScreen() {
   });
   wrap.querySelector("#resetBtn").addEventListener("click", () => {
     if (!confirm("全ての案件データを削除して初期状態に戻します。よろしいですか？")) return;
-    state = { view: "list", activeSiteId: null, weeksPerMonth: 4.35, sites: [defaultSite("新規案件")] };
+    state = { view: "list", activeSiteId: null, weeksPerMonth: 4.35, sites: [defaultSite("")] };
     render();
   });
 
@@ -664,7 +665,7 @@ function renderSiteCard(site) {
     render();
   });
   head.querySelector('[data-role="delete-site"]').addEventListener("click", () => {
-    if (!confirm(`「${site.name}」を削除しますか？`)) return;
+    if (!confirm(`「${site.name || "(企業名未入力)"}」を削除しますか？`)) return;
     state.sites = state.sites.filter(s => s.id !== site.id);
     render();
   });
