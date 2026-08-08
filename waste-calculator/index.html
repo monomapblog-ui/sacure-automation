@@ -113,8 +113,13 @@
     background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
     padding: 22px; margin-bottom: 20px; box-shadow: var(--shadow-sm);
   }
-  .site-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
-  .site-head input[type=text] { font-size: 1.15rem; font-weight: 700; flex: 1; min-width: 200px; }
+  .site-head { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .site-name-field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 220px; }
+  .site-name-field .field-label-text { font-size: 0.78rem; color: var(--muted); font-weight: 600; }
+  .required-badge { color: var(--danger); font-size: 0.7rem; font-weight: 700; margin-left: 4px; }
+  .site-head input[type=text] { font-size: 1.15rem; font-weight: 700; }
+  button[disabled] { opacity: 0.5; cursor: not-allowed; }
+  button[disabled]:hover { background: var(--panel); border-color: var(--border); }
   table { border-collapse: collapse; width: 100%; font-size: 1rem; }
   thead th {
     text-align: left; color: var(--muted); font-weight: 700; font-size: 0.9rem;
@@ -326,6 +331,12 @@ function validateNumberField(rawValue, { min = 0, allowBlank = true, fallback = 
   return { invalid: false, value: num };
 }
 
+function validateRequiredText(value) {
+  const trimmed = (value || "").trim();
+  if (!trimmed) return { invalid: true, message: "企業名を入力してください" };
+  return { invalid: false };
+}
+
 function markFieldValidity(inputEl, result) {
   inputEl.classList.toggle("input-error", result.invalid);
   const container = inputEl.closest("td, label") || inputEl.parentElement;
@@ -464,7 +475,7 @@ function renderListScreen() {
 
   wrap.innerHTML = `
     <h1>廃棄物コネクト 案件量計算ツール</h1>
-    <p class="subtitle">案件名を入れて、ゴミの種類と袋数・回数を入れるだけ。金額は自動で計算します。</p>
+    <p class="subtitle">企業名を入れて、ゴミの種類と袋数・回数を入れるだけ。金額は自動で計算します。</p>
     <div class="toolbar">
       <button class="btn-primary" id="addSiteBtn">＋ 案件を追加</button>
       <button id="guideBtn">使い方・単価表</button>
@@ -519,7 +530,11 @@ function renderSiteCard(site) {
   const head = document.createElement("div");
   head.className = "site-head";
   head.innerHTML = `
-    <input type="text" value="${escapeAttr(site.name)}" data-role="site-name" placeholder="案件名（例：新宿区新規案件）">
+    <label class="site-name-field">
+      <span class="field-label-text">企業名<span class="required-badge">必須</span></span>
+      <input type="text" value="${escapeAttr(site.name)}" data-role="site-name" placeholder="例：株式会社サキュレ">
+      <span class="field-error"></span>
+    </label>
     <button class="btn-danger" data-role="delete-site">この案件を削除</button>
   `;
   card.appendChild(head);
@@ -581,9 +596,10 @@ function renderSiteCard(site) {
   `;
   card.appendChild(workConditionsDiv);
 
+  const nameValidation = validateRequiredText(site.name);
   const actions = document.createElement("div");
   actions.className = "card-actions";
-  actions.innerHTML = `<button class="btn-quote" data-role="show-quote">💰 金額提示</button>`;
+  actions.innerHTML = `<button class="btn-quote" data-role="show-quote" ${nameValidation.invalid ? `disabled title="企業名を入力してください"` : ""}>💰 金額提示</button>`;
   actions.querySelector('[data-role="show-quote"]').addEventListener("click", () => {
     state.view = "quote";
     state.activeSiteId = site.id;
@@ -591,9 +607,11 @@ function renderSiteCard(site) {
   });
   card.appendChild(actions);
 
-  head.querySelector('[data-role="site-name"]').addEventListener("input", (e) => {
+  const siteNameEl = head.querySelector('[data-role="site-name"]');
+  markFieldValidity(siteNameEl, nameValidation);
+  siteNameEl.addEventListener("input", (e) => {
     site.name = e.target.value;
-    saveState();
+    render();
   });
   head.querySelector('[data-role="delete-site"]').addEventListener("click", () => {
     if (!confirm(`「${site.name}」を削除しますか？`)) return;
@@ -686,7 +704,7 @@ function renderItemRow(site, item) {
 function generateTermsText(site) {
   const lines = [];
   lines.push("【お見積り前提条件】");
-  lines.push(`案件名：${site.name || "(未入力)"}`);
+  lines.push(`企業名：${site.name || "(未入力)"}`);
   lines.push("下記の内容を前提として、本お見積りを算定しております。");
   lines.push("");
   if (site.items.length) {
@@ -871,7 +889,7 @@ function renderGuideScreen() {
     <div class="guide-screen">
       <h2>📖 使い方</h2>
       <ol class="guide-steps">
-        <li>「＋ 案件を追加」でお客様の案件を1件作成し、案件名を入力します。</li>
+        <li>「＋ 案件を追加」でお客様の案件を1件作成し、企業名（必須）を入力します。</li>
         <li>品目ごとに「種別」「袋サイズ（45L／70L）」「1回あたり数量」「頻度（週◯回）」を入力します。
           数量が「1〜2袋」のように幅がある場合は両方、「2袋」のように1つだけの場合は数量maxを空欄にします。</li>
         <li>必要に応じて「最低基本料金」「作業条件・特記事項」を編集します。</li>
