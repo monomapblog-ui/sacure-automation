@@ -163,23 +163,13 @@
   }
   .back-btn { margin-bottom: 20px; }
 
-  /* 粗利益パネル */
-  .profit-panel {
-    margin-top: 16px; padding: 18px 20px; border-radius: 18px;
-    background: var(--accent-soft); border: 2px solid transparent; transition: background 0.15s ease, border-color 0.15s ease;
+  /* 最低基本料金 */
+  .min-fee-panel {
+    margin-top: 16px; padding: 14px 18px; border-radius: 16px; background: var(--accent-soft);
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
   }
-  .profit-panel.alert { background: var(--danger-soft); border-color: var(--danger); }
-  .profit-alert-badge {
-    display: inline-block; background: var(--header); color: #fff; font-weight: 700;
-    padding: 4px 14px; border-radius: 999px; font-size: 0.85rem; margin-bottom: 10px;
-  }
-  .profit-inputs { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
-  .profit-inputs label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; color: var(--muted); font-weight: 600; }
-  .profit-inputs input { width: 120px; }
-  .profit-stats { display: flex; gap: 24px; flex-wrap: wrap; }
-  .profit-stats .stat b { display: block; font-size: 1.35rem; color: var(--header); font-variant-numeric: tabular-nums; }
-  .profit-stats .stat span { color: var(--muted); font-size: 0.85rem; }
-  .profit-stats .stat.negative b { color: var(--header); }
+  .min-fee-panel label { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--muted); font-weight: 600; }
+  .min-fee-panel input { width: 120px; }
 
   /* 入力バリデーション */
   .input-error { border-color: var(--header) !important; background: var(--danger-soft) !important; }
@@ -215,7 +205,6 @@ const TYPE_PRESETS = ["可燃ごみ", "生ごみ", "不燃ごみ", "瓶", "缶",
 const PRICE_PER_UNIT = { "可燃ごみ": 200, "不燃ごみ": 300, "段ボール": 35 };
 const SETUP_FEE = 3000;
 const DEFAULT_MIN_MONTHLY_FEE = 5000;
-const LOW_MARGIN_THRESHOLD = 20; // 粗利率(%)がこれ未満でアラート
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
 
@@ -236,9 +225,6 @@ function defaultSite(name) {
     name: name || "新規案件",
     includeSetupFee: true,
     minMonthlyFee: DEFAULT_MIN_MONTHLY_FEE,
-    transportCost: "",
-    disposalCost: "",
-    otherCost: "",
     workConditions: "",
     items: [
       defaultItem("可燃ごみ"),
@@ -251,9 +237,6 @@ let state = loadState();
 
 function migrateSite(site) {
   if (site.minMonthlyFee === undefined) site.minMonthlyFee = DEFAULT_MIN_MONTHLY_FEE;
-  if (site.transportCost === undefined) site.transportCost = "";
-  if (site.disposalCost === undefined) site.disposalCost = "";
-  if (site.otherCost === undefined) site.otherCost = "";
   if (site.workConditions === undefined) site.workConditions = "";
   return site;
 }
@@ -345,21 +328,7 @@ function computeSite(site) {
   const setupFee = site.includeSetupFee ? SETUP_FEE : 0;
   const quoteTotal = monthlyCost + setupFee;
 
-  // 粗利益 = 売上（お客様への月額請求額） − 原価（運搬費＋処分費＋その他経費）
-  const transportCost = validateNumberField(site.transportCost).value;
-  const disposalCost = validateNumberField(site.disposalCost).value;
-  const otherCost = validateNumberField(site.otherCost).value;
-  const expenseTotal = transportCost + disposalCost + otherCost;
-  const revenue = monthlyCost;
-  const grossProfit = revenue - expenseTotal;
-  const marginPct = revenue > 0 ? (grossProfit / revenue) * 100 : (expenseTotal > 0 ? -100 : 0);
-  const isLowMargin = marginPct < LOW_MARGIN_THRESHOLD || grossProfit < 0;
-  const isDeficit = grossProfit < 0;
-
-  return {
-    totalQty, totalCost, monthlyCost, minimumApplied, minMonthlyFee, setupFee, quoteTotal, breakdown, pricedCount, unpricedCount,
-    expenseTotal, revenue, grossProfit, marginPct, isLowMargin, isDeficit
-  };
+  return { totalQty, totalCost, monthlyCost, minimumApplied, minMonthlyFee, setupFee, quoteTotal, breakdown, pricedCount, unpricedCount };
 }
 
 function fmt(n, digits = 1) {
@@ -509,36 +478,16 @@ function renderSiteCard(site) {
   `;
   card.appendChild(summaryDiv);
 
-  const profitPanel = document.createElement("div");
-  profitPanel.className = "profit-panel" + (summary.isLowMargin ? " alert" : "");
-  profitPanel.innerHTML = `
-    ${summary.isLowMargin ? `<span class="profit-alert-badge">⚠ ${summary.isDeficit ? "赤字です" : "粗利率が低くなっています"}</span>` : ""}
-    <div class="profit-inputs">
-      <label>運搬費(円/月)
-        <input type="text" inputmode="decimal" data-role="transportCost" value="${escapeAttr(site.transportCost)}" placeholder="0">
-        <span class="field-error"></span>
-      </label>
-      <label>処分費(円/月)
-        <input type="text" inputmode="decimal" data-role="disposalCost" value="${escapeAttr(site.disposalCost)}" placeholder="0">
-        <span class="field-error"></span>
-      </label>
-      <label>その他経費(円/月)
-        <input type="text" inputmode="decimal" data-role="otherCost" value="${escapeAttr(site.otherCost)}" placeholder="0">
-        <span class="field-error"></span>
-      </label>
-      <label>最低基本料金(円/月)
-        <input type="text" inputmode="decimal" data-role="minMonthlyFee" value="${escapeAttr(site.minMonthlyFee)}">
-        <span class="field-error"></span>
-      </label>
-    </div>
-    <div class="profit-stats">
-      <div class="stat"><b>${yen(summary.revenue)}</b><span>売上合計（月額）</span></div>
-      <div class="stat"><b>${yen(summary.expenseTotal)}</b><span>原価合計</span></div>
-      <div class="stat"><b>${yen(summary.grossProfit)}</b><span>粗利益額</span></div>
-      <div class="stat"><b>${summary.marginPct.toFixed(1)}%</b><span>粗利率（${LOW_MARGIN_THRESHOLD}%未満で警告）</span></div>
-    </div>
+  const minFeePanel = document.createElement("div");
+  minFeePanel.className = "min-fee-panel";
+  minFeePanel.innerHTML = `
+    <label>最低基本料金(円/月)
+      <input type="text" inputmode="decimal" data-role="minMonthlyFee" value="${escapeAttr(site.minMonthlyFee)}">
+      <span class="field-error"></span>
+    </label>
+    <span class="note" style="margin:0;">※計算した月額がこれを下回る場合、自動的にこの金額まで引き上げます。</span>
   `;
-  card.appendChild(profitPanel);
+  card.appendChild(minFeePanel);
 
   const workConditionsDiv = document.createElement("div");
   workConditionsDiv.className = "work-conditions-field";
@@ -568,12 +517,7 @@ function renderSiteCard(site) {
     render();
   });
 
-  ["transportCost", "disposalCost", "otherCost"].forEach(role => {
-    const el = profitPanel.querySelector(`[data-role="${role}"]`);
-    markFieldValidity(el, validateNumberField(site[role]));
-    el.addEventListener("input", (e) => { site[role] = e.target.value; render(); });
-  });
-  const minFeeEl = profitPanel.querySelector('[data-role="minMonthlyFee"]');
+  const minFeeEl = minFeePanel.querySelector('[data-role="minMonthlyFee"]');
   markFieldValidity(minFeeEl, validateNumberField(site.minMonthlyFee, { min: 0, allowBlank: false, fallback: DEFAULT_MIN_MONTHLY_FEE }));
   minFeeEl.addEventListener("input", (e) => { site.minMonthlyFee = e.target.value; render(); });
   workConditionsDiv.querySelector('[data-role="workConditions"]').addEventListener("input", (e) => {
