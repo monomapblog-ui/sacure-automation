@@ -807,6 +807,249 @@ function generateBreakdownEmailText(site) {
   return lines.join("\n");
 }
 
+// ------------------------------------------------------------------
+// 契約書（Word/.docx）の生成
+// 外部ライブラリを使わず、ZIP（storeモード）とOOXMLを直接組み立てて .docx を出力する。
+// ------------------------------------------------------------------
+
+const CRC32_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) {
+      c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    }
+    table[n] = c >>> 0;
+  }
+  return table;
+})();
+
+function crc32(bytes) {
+  let crc = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; i++) {
+    crc = CRC32_TABLE[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+function u16le(n) { return [n & 0xFF, (n >>> 8) & 0xFF]; }
+function u32le(n) { return [n & 0xFF, (n >>> 8) & 0xFF, (n >>> 16) & 0xFF, (n >>> 24) & 0xFF]; }
+
+// files: [{ name, data: Uint8Array }] を、無圧縮（store）ZIPにまとめる。
+function buildZip(files) {
+  const DOS_TIME = 0x0000;
+  const DOS_DATE = 0x0021; // 1980-01-01（DOS日付のダミー値）
+  const encoder = new TextEncoder();
+  const localParts = [];
+  const centralParts = [];
+  let offset = 0;
+
+  files.forEach(file => {
+    const nameBytes = encoder.encode(file.name);
+    const data = file.data;
+    const crc = crc32(data);
+    const size = data.length;
+
+    const localHeader = new Uint8Array([
+      ...u32le(0x04034b50), ...u16le(20), ...u16le(0), ...u16le(0),
+      ...u16le(DOS_TIME), ...u16le(DOS_DATE),
+      ...u32le(crc), ...u32le(size), ...u32le(size),
+      ...u16le(nameBytes.length), ...u16le(0)
+    ]);
+    const localEntry = new Uint8Array(localHeader.length + nameBytes.length + data.length);
+    localEntry.set(localHeader, 0);
+    localEntry.set(nameBytes, localHeader.length);
+    localEntry.set(data, localHeader.length + nameBytes.length);
+    localParts.push(localEntry);
+
+    const centralHeader = new Uint8Array([
+      ...u32le(0x02014b50), ...u16le(20), ...u16le(20), ...u16le(0), ...u16le(0),
+      ...u16le(DOS_TIME), ...u16le(DOS_DATE),
+      ...u32le(crc), ...u32le(size), ...u32le(size),
+      ...u16le(nameBytes.length), ...u16le(0), ...u16le(0), ...u16le(0), ...u16le(0),
+      ...u32le(0), ...u32le(offset)
+    ]);
+    const centralEntry = new Uint8Array(centralHeader.length + nameBytes.length);
+    centralEntry.set(centralHeader, 0);
+    centralEntry.set(nameBytes, centralHeader.length);
+    centralParts.push(centralEntry);
+
+    offset += localEntry.length;
+  });
+
+  const centralSize = centralParts.reduce((sum, p) => sum + p.length, 0);
+  const centralOffset = offset;
+  const eocd = new Uint8Array([
+    ...u32le(0x06054b50), ...u16le(0), ...u16le(0),
+    ...u16le(files.length), ...u16le(files.length),
+    ...u32le(centralSize), ...u32le(centralOffset), ...u16le(0)
+  ]);
+
+  const result = new Uint8Array(offset + centralSize + eocd.length);
+  let pos = 0;
+  localParts.forEach(p => { result.set(p, pos); pos += p.length; });
+  centralParts.forEach(p => { result.set(p, pos); pos += p.length; });
+  result.set(eocd, pos);
+  return result;
+}
+
+function escapeXml(s) {
+  return String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+}
+
+// テキスト（改行含む）を1つのランに変換。改行は<w:br/>で表現する。
+function docxRun(text, opts = {}) {
+  const rPrParts = [];
+  if (opts.bold) rPrParts.push("<w:b/>");
+  if (opts.size) rPrParts.push(`<w:sz w:val="${opts.size}"/><w:szCs w:val="${opts.size}"/>`);
+  const rPr = rPrParts.length ? `<w:rPr>${rPrParts.join("")}</w:rPr>` : "";
+  const lines = String(text).split("\n");
+  const body = lines.map((line, i) => (i > 0 ? "<w:br/>" : "") + `<w:t xml:space="preserve">${escapeXml(line)}</w:t>`).join("");
+  return `<w:r>${rPr}${body}</w:r>`;
+}
+
+// 段落（見出し／本文）を1つ生成。
+function docxParagraph(text, opts = {}) {
+  const pPrParts = [];
+  if (opts.align) pPrParts.push(`<w:jc w:val="${opts.align}"/>`);
+  const before = opts.spacingBefore !== undefined ? opts.spacingBefore : 0;
+  const after = opts.spacingAfter !== undefined ? opts.spacingAfter : 120;
+  pPrParts.push(`<w:spacing w:before="${before}" w:after="${after}"/>`);
+  const pPr = `<w:pPr>${pPrParts.join("")}</w:pPr>`;
+  return `<w:p>${pPr}${docxRun(text, opts)}</w:p>`;
+}
+
+// 案件データから、簡易な廃棄物収集運搬業務委託契約書の条文一式を組み立てる。
+function generateContractParagraphs(site) {
+  const summary = computeSite(site);
+  const companyName = site.name || "（企業名未入力）";
+  const paragraphs = [];
+
+  paragraphs.push({ text: "廃棄物収集運搬業務委託契約書", bold: true, size: 32, align: "center", spacingAfter: 360 });
+  paragraphs.push({
+    text: `${companyName}（以下「甲」という。）と株式会社サキュレ（以下「乙」という。）は、甲の事業所から排出される廃棄物の収集運搬業務の委託に関し、次のとおり契約（以下「本契約」という。）を締結する。`
+  });
+
+  paragraphs.push({ text: "第1条（目的）", bold: true, spacingBefore: 200 });
+  paragraphs.push({ text: "本契約は、乙が甲の事業所から排出される廃棄物の収集運搬業務を受託するにあたり、甲乙間の権利義務関係を定めることを目的とする。" });
+
+  paragraphs.push({ text: "第2条（業務内容）", bold: true, spacingBefore: 200 });
+  paragraphs.push({ text: "乙は、次の品目について、甲の事業所から廃棄物を収集運搬する。" });
+  if (site.items.length) {
+    site.items.forEach(item => {
+      const c = computeItem(item);
+      const label = itemLabel(item);
+      const hasMax = item.qtyMax !== "" && item.qtyMax !== null && item.qtyMax !== undefined && !Number.isNaN(Number(item.qtyMax));
+      const qtyText = hasMax && String(item.qtyMax) !== String(item.qtyMin) ? `${item.qtyMin}〜${item.qtyMax}` : `${item.qtyMin}`;
+      paragraphs.push({ text: `・${label}：1回あたり${qtyText}個、週${item.daysPerWeek}回収集（月間想定 ${fmt(c.monthlyAvg)}個）` });
+    });
+  } else {
+    paragraphs.push({ text: "・（品目が登録されていません）" });
+  }
+
+  paragraphs.push({ text: "第3条（委託料金）", bold: true, spacingBefore: 200 });
+  paragraphs.push({ text: `1. 甲は乙に対し、本業務の対価として月額 ${yen(summary.monthlyCost)}（消費税別）を支払うものとする。` });
+  let article3No = 2;
+  if (site.includeSetupFee) {
+    paragraphs.push({ text: `${article3No}. 甲は乙に対し、本契約締結時に初回手数料として ${yen(SETUP_FEE)}（消費税別）を別途支払うものとする。` });
+    article3No++;
+  }
+  paragraphs.push({ text: `${article3No}. 実際の排出量が第2条に定める想定数量を著しく上回る場合、乙は甲と協議のうえ、前項の委託料金を改定できるものとする。` });
+  article3No++;
+  if (summary.minimumApplied) {
+    paragraphs.push({ text: `${article3No}. 前項第1号の委託料金には、月額最低基本料金 ${yen(summary.minMonthlyFee)} を適用する。` });
+  }
+
+  paragraphs.push({ text: "第4条（契約期間）", bold: true, spacingBefore: 200 });
+  paragraphs.push({ text: "本契約の有効期間は、契約締結日から1年間とする。ただし、期間満了の1ヶ月前までに甲乙いずれからも文書による別段の意思表示がないときは、同一条件でさらに1年間自動更新されるものとし、以降も同様とする。" });
+
+  paragraphs.push({ text: "第5条（支払方法）", bold: true, spacingBefore: 200 });
+  paragraphs.push({ text: "乙は、毎月末日をもって当月分の委託料金を締め、翌月末日までに甲へ請求するものとする。甲は、請求書記載の期日までに、乙が指定する銀行口座に振り込む方法により支払うものとする。振込手数料は甲の負担とする。" });
+
+  paragraphs.push({ text: "第6条（作業条件）", bold: true, spacingBefore: 200 });
+  if (site.workConditions && site.workConditions.trim()) {
+    paragraphs.push({ text: "本業務に関する作業条件・特記事項は、次のとおりとする。" });
+    paragraphs.push({ text: site.workConditions.trim() });
+  } else {
+    paragraphs.push({ text: "特記すべき作業条件はない。" });
+  }
+
+  paragraphs.push({ text: "第7条（免責事項）", bold: true, spacingBefore: 200 });
+  paragraphs.push({ text: "1. 天災地変その他不可抗力による損害については、乙はその責を負わないものとする。" });
+  paragraphs.push({ text: "2. 収集作業開始直後に生じた事故等による損害についても、乙は返金その他の補償を行わないものとする。" });
+
+  paragraphs.push({ text: "第8条（秘密保持）", bold: true, spacingBefore: 200 });
+  paragraphs.push({ text: "甲及び乙は、本契約の履行に関して知り得た相手方の業務上の秘密を、相手方の書面による承諾なく第三者に開示又は漏洩してはならない。" });
+
+  paragraphs.push({ text: "第9条（解約）", bold: true, spacingBefore: 200 });
+  paragraphs.push({ text: "甲又は乙は、解約希望日の1ヶ月前までに書面（電子メールを含む。）により相手方に通知することにより、本契約を解約することができる。" });
+
+  paragraphs.push({ text: "第10条（協議事項）", bold: true, spacingBefore: 200 });
+  paragraphs.push({ text: "本契約に定めのない事項又は本契約の解釈に疑義が生じた事項については、甲乙誠実に協議のうえ解決するものとする。" });
+
+  paragraphs.push({ text: "以上、本契約の成立を証するため、本書2通を作成し、甲乙記名押印のうえ、各自1通を保有する。", spacingBefore: 300 });
+  paragraphs.push({ text: "　　　　年　　月　　日", spacingBefore: 300 });
+  paragraphs.push({ text: "甲　住所：\n　　名称：" + companyName + "\n　　代表者：　　　　　　　　　　印", spacingBefore: 300 });
+  paragraphs.push({ text: "乙　住所：\n　　名称：株式会社サキュレ\n　　代表者：　　　　　　　　　　印", spacingBefore: 300 });
+
+  return paragraphs;
+}
+
+function buildContractDocxBlob(site) {
+  const paragraphs = generateContractParagraphs(site);
+  const bodyXml = paragraphs.map(p => docxParagraph(p.text, p)).join("");
+  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    ${bodyXml}
+    <w:sectPr>
+      <w:pgSz w:w="11906" w:h="16838"/>
+      <w:pgMar w:top="1417" w:right="1417" w:bottom="1417" w:left="1417" w:header="720" w:footer="720" w:gutter="0"/>
+    </w:sectPr>
+  </w:body>
+</w:document>`;
+
+  const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`;
+
+  const relsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+
+  const encoder = new TextEncoder();
+  const zipBytes = buildZip([
+    { name: "[Content_Types].xml", data: encoder.encode(contentTypesXml) },
+    { name: "_rels/.rels", data: encoder.encode(relsXml) },
+    { name: "word/document.xml", data: encoder.encode(documentXml) }
+  ]);
+
+  return new Blob([zipBytes], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+}
+
+// ブラウザによってはダウンロードのファイル名に日本語が使えず「download」（拡張子なし）に
+// 化けてしまうことがあるため、ファイル名は英数字のみ（日時ベース）にしておく。
+function formatTimestampForFilename() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
 async function copyTextToClipboard(text) {
   try {
     if (navigator.clipboard && window.isSecureContext) {
@@ -890,6 +1133,13 @@ function renderQuoteScreen(site) {
           <button data-role="copyBreakdownEmail">📋 コピーする</button>
         </div>
       </div>
+      <div class="terms-section">
+        <h3>契約書（Wordファイルをダウンロード）</h3>
+        <p class="note" style="margin:0 0 10px;">品目・料金・作業条件をもとにした簡易な契約書の雛形です。住所・代表者名などは空欄になっているので、実際の契約締結前に内容を確認・加筆してください。<br>※ブラウザの都合上、ファイル名は「keiyakusho_日時.docx」になります（日本語ファイル名にできないため）。保存後、必要に応じてリネームしてください。</p>
+        <div class="terms-actions" style="justify-content:flex-start;">
+          <button data-role="downloadContract">📄 契約書をダウンロード（Word）</button>
+        </div>
+      </div>
     </div>
   `;
 
@@ -912,6 +1162,10 @@ function renderQuoteScreen(site) {
     const feedback = wrap.querySelector('[data-role="copyFeedback2"]');
     feedback.textContent = ok ? "コピーしました！" : "コピーできませんでした。手動で選択してください。";
     setTimeout(() => { feedback.textContent = ""; }, 2500);
+  });
+  wrap.querySelector('[data-role="downloadContract"]').addEventListener("click", () => {
+    const blob = buildContractDocxBlob(site);
+    downloadBlob(blob, `keiyakusho_${formatTimestampForFilename()}.docx`);
   });
 
   frag.appendChild(wrap);
