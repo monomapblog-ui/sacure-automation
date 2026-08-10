@@ -165,6 +165,31 @@
   footer { text-align: center; color: var(--muted); font-size: 0.9rem; margin-top: 30px; }
   .table-scroll { overflow-x: auto; }
 
+  /* スマホ表示（幅640px以下）：品目テーブルをカード形式に積み替え、余白も詰める */
+  @media (max-width: 640px) {
+    body { padding: 14px; }
+    h1 { font-size: 1.3rem; }
+    .site-card { padding: 14px; }
+    .quote-screen, .guide-screen { padding: 22px 16px; }
+    .quote-amount-big { font-size: 2.6rem; }
+    .site-head { flex-direction: column; align-items: stretch; }
+    .site-name-field { min-width: 0; }
+    .table-scroll table, .table-scroll tbody, .table-scroll tr { display: block; width: 100%; }
+    .table-scroll thead { display: none; }
+    .table-scroll tr {
+      border: 2px solid var(--border-soft); border-radius: 4px; padding: 10px; margin-bottom: 12px;
+    }
+    .table-scroll td {
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 10px;
+      padding: 7px 2px; border-bottom: none; text-align: left;
+    }
+    .table-scroll td[data-label]::before {
+      content: attr(data-label); color: var(--muted); font-size: 0.76rem; font-weight: 700; flex-shrink: 0;
+    }
+    .table-scroll td.row-actions { justify-content: flex-end; }
+    .table-scroll .num-col { text-align: right; }
+  }
+
   /* 金額提示画面 */
   .quote-screen {
     background: var(--panel); border: 3px solid var(--border); border-radius: 4px;
@@ -719,31 +744,31 @@ function renderItemRow(site, item) {
   const showRange = Math.round(c.monthlyMin) !== Math.round(c.monthlyMax);
 
   tr.innerHTML = `
-    <td>
+    <td data-label="種別">
       <select class="type-select" data-role="type">
         ${TYPE_PRESETS.map(t => `<option value="${t}" ${t === item.type ? "selected" : ""}>${t}</option>`).join("")}
       </select>
       ${isCustom ? `<input type="text" class="custom-type-input" data-role="customType" value="${escapeAttr(item.customType)}" placeholder="種別名">` : ""}
     </td>
-    <td>
+    <td data-label="袋サイズ">
       ${hasBagSize ? `
         <select data-role="bagSize">
           ${BAG_SIZES.map(s => `<option value="${s}" ${s === item.bagSize ? "selected" : ""}>${s}L</option>`).join("")}
         </select>
       ` : `<span class="note" style="margin:0;">－</span>`}
     </td>
-    <td>
+    <td data-label="1回あたり数量">
       <div class="qty-pair">
         <input type="text" inputmode="decimal" data-role="qtyMin" value="${item.qtyMin}"> 〜
         <input type="text" inputmode="decimal" data-role="qtyMax" value="${item.qtyMax}" placeholder="－" title="数量が1つだけの場合は空欄でOK（最小値のみで計算します）">
       </div>
       <span class="field-error"></span>
     </td>
-    <td>
+    <td data-label="頻度(週◯回)">
       <input type="text" inputmode="numeric" data-role="daysPerWeek" value="${item.daysPerWeek}" style="width:70px;">
       <span class="field-error"></span>
     </td>
-    <td class="num-col">
+    <td class="num-col" data-label="月間量（目安）">
       <div class="monthly-qty-value">${fmt(c.monthlyAvg)}<span class="qty-unit">個/月</span></div>
       ${showRange ? `<span class="note qty-range-note">目安 ${fmt(c.monthlyMin)}〜${fmt(c.monthlyMax)}個</span>` : ""}
     </td>
@@ -1413,11 +1438,11 @@ function renderGuideScreen() {
 
   const priceTableHtml = priceRows.map(r => `
     <tr>
-      <td>${escapeHtml(r.type)}</td>
-      <td>${escapeHtml(r.size)}</td>
-      <td class="num-col">${escapeHtml(r.weight)}</td>
-      <td class="num-col">${escapeHtml(r.perKg)}</td>
-      <td class="num-col">${yen(r.unitPrice)}</td>
+      <td data-label="種別">${escapeHtml(r.type)}</td>
+      <td data-label="袋サイズ">${escapeHtml(r.size)}</td>
+      <td class="num-col" data-label="想定重量">${escapeHtml(r.weight)}</td>
+      <td class="num-col" data-label="単価(円/kg)">${escapeHtml(r.perKg)}</td>
+      <td class="num-col" data-label="1個あたり単価">${yen(r.unitPrice)}</td>
     </tr>
   `).join("");
 
