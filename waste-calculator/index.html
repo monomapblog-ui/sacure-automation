@@ -327,6 +327,7 @@ function defaultSite(name) {
     includeSetupFee: true,
     minMonthlyFee: DEFAULT_MIN_MONTHLY_FEE,
     workConditions: "",
+    contractStartDate: "",
     items: [
       defaultItem("可燃ごみ"),
       defaultItem("不燃ごみ")
@@ -341,6 +342,7 @@ function migrateSite(site) {
   if (site.minMonthlyFee === undefined) site.minMonthlyFee = DEFAULT_MIN_MONTHLY_FEE;
   if (site.workConditions === undefined) site.workConditions = "";
   if (site.includeSetupFee === undefined) site.includeSetupFee = true;
+  if (site.contractStartDate === undefined) site.contractStartDate = "";
   (site.items || []).forEach(item => {
     if (item.bagSize === undefined) item.bagSize = 45;
   });
@@ -659,6 +661,14 @@ function renderSiteCard(site) {
   `;
   card.appendChild(workConditionsDiv);
 
+  const contractDateDiv = document.createElement("div");
+  contractDateDiv.className = "work-conditions-field";
+  contractDateDiv.innerHTML = `
+    <label>契約開始日（契約書に反映・任意。空欄の場合は契約書の該当欄が空欄になります）</label>
+    <input type="date" data-role="contractStartDate" value="${escapeAttr(site.contractStartDate)}">
+  `;
+  card.appendChild(contractDateDiv);
+
   const nameValidation = validateRequiredText(site.name);
   const actions = document.createElement("div");
   actions.className = "card-actions";
@@ -688,6 +698,10 @@ function renderSiteCard(site) {
   minFeeEl.addEventListener("input", (e) => { site.minMonthlyFee = e.target.value; render(); });
   workConditionsDiv.querySelector('[data-role="workConditions"]').addEventListener("input", (e) => {
     site.workConditions = e.target.value;
+    saveState();
+  });
+  contractDateDiv.querySelector('[data-role="contractStartDate"]').addEventListener("input", (e) => {
+    site.contractStartDate = e.target.value;
     saveState();
   });
 
@@ -915,99 +929,221 @@ function escapeXml(s) {
 }
 
 // テキスト（改行含む）を1つのランに変換。改行は<w:br/>で表現する。
+// フォントは雛形に合わせてMS明朝で統一する。
 function docxRun(text, opts = {}) {
-  const rPrParts = [];
-  if (opts.bold) rPrParts.push("<w:b/>");
-  if (opts.size) rPrParts.push(`<w:sz w:val="${opts.size}"/><w:szCs w:val="${opts.size}"/>`);
-  const rPr = rPrParts.length ? `<w:rPr>${rPrParts.join("")}</w:rPr>` : "";
+  const rPrParts = [`<w:rFonts w:ascii="MS Mincho" w:hAnsi="MS Mincho" w:eastAsia="MS Mincho" w:hint="eastAsia"/>`];
+  if (opts.bold) rPrParts.push("<w:b/><w:bCs/>");
+  const size = opts.size || 20;
+  rPrParts.push(`<w:sz w:val="${size}"/><w:szCs w:val="${size}"/>`);
+  const rPr = `<w:rPr>${rPrParts.join("")}</w:rPr>`;
   const lines = String(text).split("\n");
   const body = lines.map((line, i) => (i > 0 ? "<w:br/>" : "") + `<w:t xml:space="preserve">${escapeXml(line)}</w:t>`).join("");
   return `<w:r>${rPr}${body}</w:r>`;
 }
 
-// 段落（見出し／本文）を1つ生成。
+// 段落（見出し／本文）を1つ生成。indentLeft/indentHanging/indentFirstLineはtwips指定（雛形のw:ind値をそのまま渡す）。
 function docxParagraph(text, opts = {}) {
   const pPrParts = [];
   if (opts.align) pPrParts.push(`<w:jc w:val="${opts.align}"/>`);
+  if (opts.indentLeft !== undefined || opts.indentHanging !== undefined || opts.indentFirstLine !== undefined) {
+    const attrs = [];
+    if (opts.indentLeft !== undefined) attrs.push(`w:left="${opts.indentLeft}"`);
+    if (opts.indentHanging !== undefined) attrs.push(`w:hanging="${opts.indentHanging}"`);
+    if (opts.indentFirstLine !== undefined) attrs.push(`w:firstLine="${opts.indentFirstLine}"`);
+    pPrParts.push(`<w:ind ${attrs.join(" ")}/>`);
+  }
   const before = opts.spacingBefore !== undefined ? opts.spacingBefore : 0;
-  const after = opts.spacingAfter !== undefined ? opts.spacingAfter : 120;
+  const after = opts.spacingAfter !== undefined ? opts.spacingAfter : 0;
   pPrParts.push(`<w:spacing w:before="${before}" w:after="${after}"/>`);
   const pPr = `<w:pPr>${pPrParts.join("")}</w:pPr>`;
   return `<w:p>${pPr}${docxRun(text, opts)}</w:p>`;
 }
 
-// 案件データから、簡易な廃棄物収集運搬業務委託契約書の条文一式を組み立てる。
+// 「2026年　6月　19日」のような、雛形と同じ書式（全角スペース区切り・0埋めなし）の日付文字列を作る。
+function formatJapaneseDate(y, m, d) {
+  return `${y}年　${m}月　${d}日`;
+}
+
+// 契約開始日（YYYY-MM-DD）から、第14条関係の契約期間（開始日〜1年後の前日）を計算する。
+function computeContractPeriod(startDateStr) {
+  if (!startDateStr) return null;
+  const parts = startDateStr.split("-").map(Number);
+  const [y, m, d] = parts;
+  if (!y || !m || !d) return null;
+  const start = new Date(y, m - 1, d);
+  const end = new Date(y + 1, m - 1, d);
+  end.setDate(end.getDate() - 1);
+  return {
+    startText: formatJapaneseDate(start.getFullYear(), start.getMonth() + 1, start.getDate()),
+    endText: formatJapaneseDate(end.getFullYear(), end.getMonth() + 1, end.getDate())
+  };
+}
+
+// 御社の実際の契約書雛形（一般廃棄物収集運搬処理委託契約書）に準拠して条文一式を組み立てる。
+// 条文本文・条番号の有無・字下げなどは雛形をそのまま踏襲し、以下のみ案件データで自動入力する。
+//   ・作成日（本日日付）
+//   ・甲の名称（企業名）　※住所・代表者は雛形どおり空欄
+//   ・別表：甲の事業所（店名＝企業名）、種類及び予定数量と単価（品目ごとに自動生成）
+//   ・別表：契約期間（「契約開始日」欄が入力されていれば開始日〜1年後前日を自動計算、未入力なら空欄）
 function generateContractParagraphs(site) {
-  const summary = computeSite(site);
-  const companyName = site.name || "（企業名未入力）";
+  const companyName = site.name || "";
+  const today = new Date();
+  const todayText = formatJapaneseDate(today.getFullYear(), today.getMonth() + 1, today.getDate());
+  const period = computeContractPeriod(site.contractStartDate);
+  const P = (text, opts = {}) => ({ text, ...opts });
+  const HANG800 = { indentLeft: 800, indentHanging: 800 };
+  const HANG1000 = { indentLeft: 1000, indentHanging: 1000 };
   const paragraphs = [];
 
-  paragraphs.push({ text: "廃棄物収集運搬業務委託契約書", bold: true, size: 32, align: "center", spacingAfter: 360 });
-  paragraphs.push({
-    text: `${companyName}（以下「甲」という。）と株式会社サキュレ（以下「乙」という。）は、甲の事業所から排出される廃棄物の収集運搬業務の委託に関し、次のとおり契約（以下「本契約」という。）を締結する。`
-  });
+  paragraphs.push(P("一般廃棄物収集運搬処理委託契約書", { bold: true, size: 24, align: "center" }));
+  paragraphs.push(P(""));
+  paragraphs.push(P(todayText, { align: "right" }));
+  paragraphs.push(P("", { align: "right" }));
+  paragraphs.push(P("甲　（排出事業者）　　　"));
+  paragraphs.push(P("　　　　　　　　　　　　" + companyName));
+  paragraphs.push(P("　　　　　　　　　　　  "));
+  paragraphs.push(P("　　　　"));
+  paragraphs.push(P(""));
+  paragraphs.push(P("乙　（収集運搬業者）　　東京都大田区仲池上一丁目２４番地７号"));
+  paragraphs.push(P("　　　　　　　　　　　　株式会社　サキュレ　"));
+  paragraphs.push(P("　　　　　　　　　　　　代表取締役　宇都宮　基行　　　　　　　　　　"));
+  paragraphs.push(P("　　　"));
+  paragraphs.push(P(""));
+  paragraphs.push(P(
+    "上記排出事業者（以下｢甲｣という。）と収集運搬業者（以下｢乙｣という。）は、事業系一般廃棄物（以下「廃棄物」という。）の収集・運搬に関して、次のとおり契約を締結する。本契約成立の証として、甲と乙とは本書を1通作成し、記名押印の上、甲が本書を保有し、乙はその写しを保有する。",
+    { indentFirstLine: 200 }
+  ));
+  paragraphs.push(P(""));
+  paragraphs.push(P("記"));
+  paragraphs.push(P(""));
 
-  paragraphs.push({ text: "第1条（目的）", bold: true, spacingBefore: 200 });
-  paragraphs.push({ text: "本契約は、乙が甲の事業所から排出される廃棄物の収集運搬業務を受託するにあたり、甲乙間の権利義務関係を定めることを目的とする。" });
+  paragraphs.push(P("（目的）"));
+  paragraphs.push(P("第1条　甲は、「廃棄物の処理および清掃に関する法律」（以下「廃掃法」という。）に基づき甲の所有する別表に定める事業所（以下「排出事業所」という。）から排出される廃棄物の収集運搬業務（以下「本業務」という。）を乙に委託し、乙はこれを受託する。", HANG800));
 
-  paragraphs.push({ text: "第2条（業務内容）", bold: true, spacingBefore: 200 });
-  paragraphs.push({ text: "乙は、次の品目について、甲の事業所から廃棄物を収集運搬する。" });
-  if (site.items.length) {
-    site.items.forEach(item => {
-      const c = computeItem(item);
-      const label = itemLabel(item);
-      const hasMax = item.qtyMax !== "" && item.qtyMax !== null && item.qtyMax !== undefined && !Number.isNaN(Number(item.qtyMax));
-      const qtyText = hasMax && String(item.qtyMax) !== String(item.qtyMin) ? `${item.qtyMin}〜${item.qtyMax}` : `${item.qtyMin}`;
-      paragraphs.push({ text: `・${label}：1回あたり${qtyText}個、週${item.daysPerWeek}回収集（月間想定 ${fmt(c.monthlyAvg)}個）` });
+  paragraphs.push(P("（関係法令の遵守）"));
+  paragraphs.push(P("甲および乙は、本契約履行にあたり、廃掃法その他の関係法令、各特別区条例及び行政指導等（以下「法令等」という。）を遵守しなければならない。"));
+
+  paragraphs.push(P("（乙の事業範囲）"));
+  paragraphs.push(P("第３条　乙は、この契約の締結にあたり、乙の事業範囲を証するものとして、許可証の写しを甲に提出する。なお、許可事項に変更があったときは、乙は速やかにその旨を甲に通知するとともに変更後の許可証の写しを甲に提出する。"));
+
+  paragraphs.push(P("（搬入先）"));
+  paragraphs.push(P("第４条　乙は甲から委託された第５条の廃棄物を別表のとおり搬入する　　"));
+
+  paragraphs.push(P("（廃棄物の種類及び数量と単価）"));
+  paragraphs.push(P("第５条　甲は、乙に収集運搬を委託する廃棄物の種類及び予定数量と収集運搬料金は、別表のとおりとする。尚、予定数量については、定期的又は必要に応じて計量等により見直す。", HANG800));
+
+  paragraphs.push(P("（委託料および支払方法）"));
+  paragraphs.push(P(" 本業務の委託料は、前条の定める単価に基いて算出し、乙に支払うものとする。但し、これにより　　　 がたい 場合は、甲乙合意の上、1回当たりの単価にすることができるものとする。"));
+  paragraphs.push(P("　　２　甲及び乙は、第1項の委託料が経済情勢の変化、監督官庁の定める廃棄物処理手数料の変更、第5条に定める予定数量に大幅な変化があった場合等で不相当になった時には、甲及び乙で協議のうえ、監督官庁の定める範囲内でこれを改定することができる。", HANG800));
+  paragraphs.push(P("　　３　甲は、乙の本業務終了分にかかる委託料ならびに消費税および地方消費税相当額を乙の請求に基づき、当月末日締めにて請求し、甲は、翌月末日までに、乙の指定する銀行口座に振り込み乙に支払うものとし、振込み手数料は甲の負担とする。", HANG800));
+  paragraphs.push(P(""));
+  paragraphs.push(P(""));
+
+  paragraphs.push(P("（マニフェスト）"));
+  paragraphs.push(P("第7条　甲は、各排出事業所において排出させる1日平均の数量が、当該事業所の所管の区市町村が定める基準以上の廃棄物を運搬させる場合、引渡しの都度、一般廃棄物管理票（以下「マニフェスト」という。）に必要事項を記入して乙に交付するものとする。", HANG800));
+  paragraphs.push(P("　　２　乙は、マニフェスト制度の手続きに基づき、甲に対し報告等の措置を行うものとする。"));
+
+  paragraphs.push(P("（義務と責任）"));
+  paragraphs.push(P("甲は,法令等に基づき、不要物を一般廃棄物、産業廃棄物、有価物、危険物等に分別するとともに、適正に保管・管理しなければならない。甲は処分に支障を生じさせる虞のある物質が混入しないようにし、万一混入したことにより、乙の業務に重大な支障が生じ、又は生じる虞がある場合に乙は委託の引取りを拒むことができる。"));
+  paragraphs.push(P("　　２　乙の責任範囲は、甲から委託された一般廃棄物を、その積込作業の開始から、第4条に定める搬入先での荷降し作業完了まで法令等に基づき適正に収集運搬することとする。甲の責任範囲は乙の責任範囲を除くすべてとする。", HANG800));
+  paragraphs.push(P("　　３　乙はやむを得ない事由があるときには、甲の了解を得て、一時業務を停止することができる。この場合、乙は甲に事由を説明し、かつ甲における影響が最小限となるようにする。", HANG800));
+
+  paragraphs.push(P("（損害賠償）"));
+  paragraphs.push(P("第９条　業務遂行にあたり乙は、乙又は乙の従業員の不注意若しくは過失により、甲又は第三者に損害を及ぼしたときは、その賠償の責任を負う。ただし、甲の不注意若しくは故意により、物品器材等を廃棄保管場所に置き、乙が廃棄物として処理し損害が発生しても、乙に責任がないものとする。", HANG800));
+
+  paragraphs.push(P("（業務の調査等）"));
+  paragraphs.push(P("第10条　甲は、本契約に係る乙の廃棄物の運搬が法令等の定めに基づき、適正に行なわれているかを確認するため、乙に対して、当該運搬の状況に係る報告を求める事ができる。", HANG800));
+
+  paragraphs.push(P("（権利義務の譲渡等の禁止）"));
+  paragraphs.push(P("第11条　乙は、本契約に基づく権利または義務の全部もしくは一部を第三者に譲渡し、または担保の目的に供してはならない。", HANG800));
+
+  paragraphs.push(P("（再委託の禁止）"));
+  paragraphs.push(P("第１2条　乙は、甲から委託された廃棄物の収集・運搬業務を他人に委託してはならない。"));
+
+  paragraphs.push(P("（守秘義務）"));
+  paragraphs.push(P("第13条　甲および乙は、本契約の履行にあたり知り得た相手方の秘密を契約期間中はもちろん本契約終了後といえども、第三者に漏洩してはならない。", HANG1000));
+
+  paragraphs.push(P("（契約期間・解約・解除）"));
+  paragraphs.push(P("第14条　本契約の有効期間及び更新に関する事項は、別表の通りとする。"));
+  paragraphs.push(P("２　甲又は乙は、本契約の有効期間中であっても、相手方に対して2ヶ月前までに文書をもって通知することにより、本契約書を解除することができる。", { indentLeft: 1000, indentHanging: 400 }));
+  paragraphs.push(P("３　この契約の当事者がこの契約の条項のいずれか又は法令等の規定に違反するときこの契約を解除することができる。", { indentLeft: 1000, indentHanging: 400 }));
+  paragraphs.push(P("４　1項2項の規定により本契約を解除又は解約するに当たり、本契約基づき甲から引取りを受けた", { indentLeft: 1000, indentHanging: 400 }));
+  paragraphs.push(P("　　一般廃棄物の処理を乙が完了していないときは、当該一般廃棄物を甲乙双方の責任で処理した後でなければ、本契約は解除又は解約できない。", { indentLeft: 1000, indentHanging: 400 }));
+
+  paragraphs.push(P("（協議事項）"));
+  paragraphs.push(P("第15条　甲及び乙は、この契約に定めのない事項又は、この契約の事項に関する疑義が生じたときは、法令等の定めに基づき、誠意をもって協議のうえ、これを決定するものとする。", HANG800));
+
+  paragraphs.push(P(""));
+  paragraphs.push(P(""));
+  paragraphs.push(P(""));
+  paragraphs.push(P("別表", { bold: true, size: 24 }));
+  paragraphs.push(P(""));
+  paragraphs.push(P(""));
+
+  paragraphs.push(P("第１条関係　甲の事業所"));
+  paragraphs.push(P(""));
+  paragraphs.push(P("　　　　　　店　名　：　" + companyName));
+  paragraphs.push(P(""));
+  paragraphs.push(P("　　　　"));
+  paragraphs.push(P("　　　　　　所在地　：　"));
+  paragraphs.push(P(""));
+  paragraphs.push(P(""));
+
+  paragraphs.push(P("第３条関係　乙の事業範囲"));
+  paragraphs.push(P(""));
+  paragraphs.push(P("　　　　　　添付一般廃棄物収集運搬業許可証の通り"));
+  paragraphs.push(P(""));
+  paragraphs.push(P(""));
+
+  paragraphs.push(P("第４条関係　搬入先"));
+  paragraphs.push(P("", { indentFirstLine: 1600 }));
+  paragraphs.push(P("・普通ごみ「厨芥類、紙屑類」　　：　区長の指定する処理施設（清掃工場）", { indentFirstLine: 1200 }));
+  paragraphs.push(P(""));
+  paragraphs.push(P(""));
+
+  paragraphs.push(P("第５条関係　種類及び予定数量と単価　　"));
+  paragraphs.push(P(""));
+  paragraphs.push(P(""));
+
+  const pricedItems = site.items.filter(item => getUnitPrice(item) !== undefined);
+  if (pricedItems.length) {
+    pricedItems.forEach((item, i) => {
+      const detail = getPriceDetail(item);
+      const monthlyQty = Math.round(computeItem(item).monthlyAvg);
+      const sizePrefix = BAG_SIZE_TYPES.includes(item.type) ? `${item.bagSize}L${detail.unitLabel}` : detail.unitLabel;
+      const prefix = i === 0 ? "　　　　 　予定数量　 " : "　　　　　　　　　　　";
+      paragraphs.push(P(`${prefix}・${itemLabelPlain(item)}　　   ： 　 ${sizePrefix} :約${monthlyQty}${detail.unitLabel}/月`));
     });
   } else {
-    paragraphs.push({ text: "・（品目が登録されていません）" });
+    paragraphs.push(P("　　　　 　予定数量　 ・（単価が設定されている品目がありません）"));
   }
-
-  paragraphs.push({ text: "第3条（委託料金）", bold: true, spacingBefore: 200 });
-  paragraphs.push({ text: `1. 甲は乙に対し、本業務の対価として月額 ${yen(summary.monthlyCost)}（消費税別）を支払うものとする。` });
-  let article3No = 2;
-  if (site.includeSetupFee) {
-    paragraphs.push({ text: `${article3No}. 甲は乙に対し、本契約締結時に初回手数料として ${yen(SETUP_FEE)}（消費税別）を別途支払うものとする。` });
-    article3No++;
-  }
-  paragraphs.push({ text: `${article3No}. 実際の排出量が第2条に定める想定数量を著しく上回る場合、乙は甲と協議のうえ、前項の委託料金を改定できるものとする。` });
-  article3No++;
-  if (summary.minimumApplied) {
-    paragraphs.push({ text: `${article3No}. 前項第1号の委託料金には、月額最低基本料金 ${yen(summary.minMonthlyFee)} を適用する。` });
-  }
-
-  paragraphs.push({ text: "第4条（契約期間）", bold: true, spacingBefore: 200 });
-  paragraphs.push({ text: "本契約の有効期間は、契約締結日から1年間とする。ただし、期間満了の1ヶ月前までに甲乙いずれからも文書による別段の意思表示がないときは、同一条件でさらに1年間自動更新されるものとし、以降も同様とする。" });
-
-  paragraphs.push({ text: "第5条（支払方法）", bold: true, spacingBefore: 200 });
-  paragraphs.push({ text: "乙は、毎月末日をもって当月分の委託料金を締め、翌月末日までに甲へ請求するものとする。甲は、請求書記載の期日までに、乙が指定する銀行口座に振り込む方法により支払うものとする。振込手数料は甲の負担とする。" });
-
-  paragraphs.push({ text: "第6条（作業条件）", bold: true, spacingBefore: 200 });
-  if (site.workConditions && site.workConditions.trim()) {
-    paragraphs.push({ text: "本業務に関する作業条件・特記事項は、次のとおりとする。" });
-    paragraphs.push({ text: site.workConditions.trim() });
+  paragraphs.push(P(""));
+  paragraphs.push(P(""));
+  if (pricedItems.length) {
+    pricedItems.forEach((item, i) => {
+      const detail = getPriceDetail(item);
+      const unitPrice = getUnitPrice(item);
+      const sizePrefix = BAG_SIZE_TYPES.includes(item.type) ? `${item.bagSize}L${detail.unitLabel}` : detail.unitLabel;
+      const prefix = i === 0 ? "　　　　　 単　価　 　" : "　　　　　　　　　　　";
+      paragraphs.push(P(`${prefix}・${itemLabelPlain(item)}　　   ：　　${sizePrefix}：${unitPrice}円/${detail.unitLabel}（税別）`));
+    });
   } else {
-    paragraphs.push({ text: "特記すべき作業条件はない。" });
+    paragraphs.push(P("　　　　　 単　価　 　・（単価が設定されている品目がありません）"));
   }
+  paragraphs.push(P(""));
+  paragraphs.push(P(""));
+  paragraphs.push(P(""));
 
-  paragraphs.push({ text: "第7条（免責事項）", bold: true, spacingBefore: 200 });
-  paragraphs.push({ text: "1. 天災地変その他不可抗力による損害については、乙はその責を負わないものとする。" });
-  paragraphs.push({ text: "2. 収集作業開始直後に生じた事故等による損害についても、乙は返金その他の補償を行わないものとする。" });
-
-  paragraphs.push({ text: "第8条（秘密保持）", bold: true, spacingBefore: 200 });
-  paragraphs.push({ text: "甲及び乙は、本契約の履行に関して知り得た相手方の業務上の秘密を、相手方の書面による承諾なく第三者に開示又は漏洩してはならない。" });
-
-  paragraphs.push({ text: "第9条（解約）", bold: true, spacingBefore: 200 });
-  paragraphs.push({ text: "甲又は乙は、解約希望日の1ヶ月前までに書面（電子メールを含む。）により相手方に通知することにより、本契約を解約することができる。" });
-
-  paragraphs.push({ text: "第10条（協議事項）", bold: true, spacingBefore: 200 });
-  paragraphs.push({ text: "本契約に定めのない事項又は本契約の解釈に疑義が生じた事項については、甲乙誠実に協議のうえ解決するものとする。" });
-
-  paragraphs.push({ text: "以上、本契約の成立を証するため、本書2通を作成し、甲乙記名押印のうえ、各自1通を保有する。", spacingBefore: 300 });
-  paragraphs.push({ text: "　　　　年　　月　　日", spacingBefore: 300 });
-  paragraphs.push({ text: "甲　住所：\n　　名称：" + companyName + "\n　　代表者：　　　　　　　　　　印", spacingBefore: 300 });
-  paragraphs.push({ text: "乙　住所：\n　　名称：株式会社サキュレ\n　　代表者：　　　　　　　　　　印", spacingBefore: 300 });
+  paragraphs.push(P("第14条関係"));
+  paragraphs.push(P(""));
+  if (period) {
+    paragraphs.push(P(`　　　　　契約期間　：　${period.startText} から ${period.endText}まで`, { size: 22 }));
+  } else {
+    paragraphs.push(P("　　　　　契約期間　：　", { size: 22 }));
+  }
+  paragraphs.push(P(""));
+  paragraphs.push(P("　　　　　更　新　 　: 期間満了の2ヶ月前までに甲乙いずれからも異議がない場合には"));
+  paragraphs.push(P("　　　　　　　　　　　 更に1年間更新するものとし、以後この例による"));
 
   return paragraphs;
 }
@@ -1020,8 +1156,8 @@ function buildContractDocxBlob(site) {
   <w:body>
     ${bodyXml}
     <w:sectPr>
-      <w:pgSz w:w="11906" w:h="16838"/>
-      <w:pgMar w:top="1417" w:right="1417" w:bottom="1417" w:left="1417" w:header="720" w:footer="720" w:gutter="0"/>
+      <w:pgSz w:w="11907" w:h="16840" w:code="9"/>
+      <w:pgMar w:top="851" w:right="1134" w:bottom="851" w:left="1134" w:header="851" w:footer="992" w:gutter="0"/>
     </w:sectPr>
   </w:body>
 </w:document>`;
