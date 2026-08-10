@@ -159,6 +159,7 @@
   .add-row-btn { margin-top: 10px; }
   .toolbar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
   .note { color: var(--muted); font-size: 0.92rem; margin-top: 10px; }
+  a.note { color: var(--accent2); text-decoration: underline; cursor: pointer; align-self: center; }
   select.type-select { min-width: 110px; }
   .custom-type-input { width: 100px; }
   footer { text-align: center; color: var(--muted); font-size: 0.9rem; margin-top: 30px; }
@@ -1148,7 +1149,9 @@ function generateContractParagraphs(site) {
   return paragraphs;
 }
 
-function buildContractDocxBlob(site) {
+const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+function buildContractDocxBytes(site) {
   const paragraphs = generateContractParagraphs(site);
   const bodyXml = paragraphs.map(p => docxParagraph(p.text, p)).join("");
   const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -1175,13 +1178,32 @@ function buildContractDocxBlob(site) {
 </Relationships>`;
 
   const encoder = new TextEncoder();
-  const zipBytes = buildZip([
+  return buildZip([
     { name: "[Content_Types].xml", data: encoder.encode(contentTypesXml) },
     { name: "_rels/.rels", data: encoder.encode(relsXml) },
     { name: "word/document.xml", data: encoder.encode(documentXml) }
   ]);
+}
 
-  return new Blob([zipBytes], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+function buildContractDocxBlob(site) {
+  return new Blob([buildContractDocxBytes(site)], { type: DOCX_MIME });
+}
+
+// bytes -> base64（大きいバイト列でもスタックオーバーフローしないようchunk分割する）
+function uint8ToBase64(bytes) {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+// Artifact（claude.ai）のiframeサンドボックスでは<a download>クリックが反応しないことがあるため、
+// data:URIへの通常のリンク遷移（target="_blank"）でも開けるようにしておく保険。
+function buildContractDocxDataUrl(site) {
+  const base64 = uint8ToBase64(buildContractDocxBytes(site));
+  return `data:${DOCX_MIME};base64,${base64}`;
 }
 
 // ブラウザによってはダウンロードのファイル名に日本語が使えず「download」（拡張子なし）に
@@ -1320,9 +1342,10 @@ function renderQuoteScreen(site) {
       <div class="terms-section">
         <h3>契約書（Wordファイルをダウンロード）</h3>
         <p class="note" style="margin:0 0 10px;">品目・料金・作業条件をもとにした簡易な契約書の雛形です。住所・代表者名などは空欄になっているので、実際の契約締結前に内容を確認・加筆してください。<br>※ブラウザの都合上、ファイル名は「keiyakusho_日時.docx」になります（日本語ファイル名にできないため）。保存後、必要に応じてリネームしてください。</p>
-        <div class="terms-actions" style="justify-content:flex-start;">
+        <div class="terms-actions" style="justify-content:flex-start; flex-wrap:wrap;">
           <span class="copy-feedback" data-role="downloadFeedback"></span>
           <button data-role="downloadContract">📄 契約書をダウンロード（Word）</button>
+          <a data-role="downloadContractLink" target="_blank" rel="noopener" download="keiyakusho.docx" class="note" style="margin:0;">ダウンロードされない場合はこちら（別ウィンドウで開く）</a>
         </div>
       </div>
     </div>
@@ -1348,6 +1371,7 @@ function renderQuoteScreen(site) {
     feedback.textContent = ok ? "コピーしました！" : "コピーできませんでした。手動で選択してください。";
     setTimeout(() => { feedback.textContent = ""; }, 2500);
   });
+  wrap.querySelector('[data-role="downloadContractLink"]').href = buildContractDocxDataUrl(site);
   wrap.querySelector('[data-role="downloadContract"]').addEventListener("click", async () => {
     const feedback = wrap.querySelector('[data-role="downloadFeedback"]');
     feedback.textContent = "";
