@@ -675,6 +675,7 @@ function renderSiteCard(site) {
   actions.className = "card-actions";
   actions.innerHTML = `<button class="btn-quote" data-role="show-quote" ${nameValidation.invalid ? `disabled title="企業名を入力してください"` : ""}>💰 金額提示</button>`;
   actions.querySelector('[data-role="show-quote"]').addEventListener("click", () => {
+    site.includeSetupFee = true; // 金額提示画面を開くたびに、初回手数料チェックは常にONへ戻す
     state.view = "quote";
     state.activeSiteId = site.id;
     render();
