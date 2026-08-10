@@ -410,18 +410,6 @@ function validateNumberField(rawValue, { min = 0, allowBlank = true, fallback = 
   return { invalid: false, value: num };
 }
 
-// 日本語などIME変換を伴うテキスト入力欄に「入力のたびにDOMを再描画する」処理を
-// そのまま繋ぐと、変換中にrender()が要素を作り直してしまい入力が壊れる（例:「ｋい」のような文字化け）。
-// 変換確定前（isComposing中）はrender()を呼ばず、変換確定時（compositionend）に反映する。
-function bindImeSafeInput(inputEl, onChange) {
-  inputEl.addEventListener("input", (e) => {
-    onChange(e.target.value, { composing: e.isComposing === true });
-  });
-  inputEl.addEventListener("compositionend", (e) => {
-    onChange(e.target.value, { composing: false });
-  });
-}
-
 function validateRequiredText(value) {
   const trimmed = (value || "").trim();
   if (!trimmed) return { invalid: true, message: "企業名を入力してください" };
@@ -715,11 +703,16 @@ function renderSiteCard(site) {
 
   const siteNameEl = head.querySelector('[data-role="site-name"]');
   markFieldValidity(siteNameEl, nameValidation);
-  bindImeSafeInput(siteNameEl, (value, { composing }) => {
-    site.name = value;
-    if (composing) { saveState(); return; }
-    render();
+  // 企業名欄は他の項目のように入力のたびに再描画する必要がないため、入力中は再描画しない
+  // （スマホで再描画のたびにキーボードがちらつく・入力しづらくなるのを防ぐため）。
+  // フォーカスが外れたタイミングでのみ再描画し、必須チェックの表示を更新する。
+  siteNameEl.addEventListener("input", (e) => {
+    site.name = e.target.value;
+    saveState();
   });
+  // setTimeoutで1テック遅らせることで、「フォーカスが外れた直後に別のボタンをクリックする」
+  // 操作でblurのrender()がそのクリックの処理と競合し、クリックが効かなくなるのを防ぐ。
+  siteNameEl.addEventListener("blur", () => { setTimeout(render, 0); });
   head.querySelector('[data-role="delete-site"]').addEventListener("click", () => {
     if (!confirm(`「${site.name || "(企業名未入力)"}」を削除しますか？`)) return;
     state.sites = state.sites.filter(s => s.id !== site.id);
@@ -787,11 +780,13 @@ function renderItemRow(site, item) {
   });
   const customInput = tr.querySelector('[data-role="customType"]');
   if (customInput) {
-    bindImeSafeInput(customInput, (value, { composing }) => {
-      item.customType = value;
-      if (composing) { saveState(); return; }
-      render();
+    // こちらも企業名欄と同様、入力中の再描画によるスマホでの入力しづらさを避けるため
+    // 入力中は再描画せず、フォーカスが外れたタイミングでのみ再描画する。
+    customInput.addEventListener("input", (e) => {
+      item.customType = e.target.value;
+      saveState();
     });
+    customInput.addEventListener("blur", () => { setTimeout(render, 0); });
   }
   const bagSizeEl = tr.querySelector('[data-role="bagSize"]');
   if (bagSizeEl) {
