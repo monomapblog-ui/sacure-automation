@@ -355,7 +355,7 @@ function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (!parsed.view) parsed.view = "list";
+      parsed.view = "list"; // URLを開くたびに必ずトップ（一覧）画面から始める
       parsed.sites = (parsed.sites || []).map(migrateSite);
       return parsed;
     }
