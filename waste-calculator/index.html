@@ -382,6 +382,18 @@ function validateNumberField(rawValue, { min = 0, allowBlank = true, fallback = 
   return { invalid: false, value: num };
 }
 
+// 日本語などIME変換を伴うテキスト入力欄に「入力のたびにDOMを再描画する」処理を
+// そのまま繋ぐと、変換中にrender()が要素を作り直してしまい入力が壊れる（例:「ｋい」のような文字化け）。
+// 変換確定前（isComposing中）はrender()を呼ばず、変換確定時（compositionend）に反映する。
+function bindImeSafeInput(inputEl, onChange) {
+  inputEl.addEventListener("input", (e) => {
+    onChange(e.target.value, { composing: e.isComposing === true });
+  });
+  inputEl.addEventListener("compositionend", (e) => {
+    onChange(e.target.value, { composing: false });
+  });
+}
+
 function validateRequiredText(value) {
   const trimmed = (value || "").trim();
   if (!trimmed) return { invalid: true, message: "企業名を入力してください" };
@@ -660,8 +672,9 @@ function renderSiteCard(site) {
 
   const siteNameEl = head.querySelector('[data-role="site-name"]');
   markFieldValidity(siteNameEl, nameValidation);
-  siteNameEl.addEventListener("input", (e) => {
-    site.name = e.target.value;
+  bindImeSafeInput(siteNameEl, (value, { composing }) => {
+    site.name = value;
+    if (composing) { saveState(); return; }
     render();
   });
   head.querySelector('[data-role="delete-site"]').addEventListener("click", () => {
@@ -727,7 +740,11 @@ function renderItemRow(site, item) {
   });
   const customInput = tr.querySelector('[data-role="customType"]');
   if (customInput) {
-    customInput.addEventListener("input", (e) => { item.customType = e.target.value; render(); });
+    bindImeSafeInput(customInput, (value, { composing }) => {
+      item.customType = value;
+      if (composing) { saveState(); return; }
+      render();
+    });
   }
   const bagSizeEl = tr.querySelector('[data-role="bagSize"]');
   if (bagSizeEl) {
