@@ -543,6 +543,8 @@ function restoreFocus(info) {
   }
 }
 
+let lastRenderedView = null; // 画面切り替え（一覧⇔金額提示⇔使い方）のときだけ先頭にスクロールするための記録
+
 function render() {
   const focusInfo = captureFocus();
   const app = document.getElementById("app");
@@ -555,6 +557,10 @@ function render() {
     app.appendChild(renderGuideScreen());
   } else {
     app.appendChild(renderListScreen());
+  }
+  if (state.view !== lastRenderedView) {
+    window.scrollTo(0, 0);
+    lastRenderedView = state.view;
   }
   restoreFocus(focusInfo);
   saveState();
