@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>定期回収計算ツール</title>
 <style>
-  /* ドラゴンクエスト風「青いウィンドウ」テーマ。ライト/ダーク切替でも見た目を統一する。 */
+  /* ドラゴンクエスト風「青いウィンドウ」テーマ＋パーチメント背景。ライト/ダーク切替でも見た目を統一する。 */
   :root {
-    --bg: #050a28;
+    --bg: #d9c393;
     --bg-accent: #0d1442;
     --panel: #1b1f6b;
     --border: #ffffff;
@@ -23,41 +23,51 @@
     --danger: #ff5c5c;
     --danger-soft: rgba(255, 92, 92, 0.2);
     --header: #ffd23f;
+    --ink: #4a3520;
+    --ink-muted: #7a6142;
+    --gold: #ffd23f;
+    --gold-deep: #b8791a;
     --shadow: 4px 4px 0 rgba(0, 0, 0, 0.45);
     --shadow-sm: 3px 3px 0 rgba(0, 0, 0, 0.4);
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #050a28; --bg-accent: #0d1442; --panel: #1b1f6b; --border: #ffffff; --border-soft: rgba(255, 255, 255, 0.4);
+      --bg: #d9c393; --bg-accent: #0d1442; --panel: #1b1f6b; --border: #ffffff; --border-soft: rgba(255, 255, 255, 0.4);
       --text: #ffffff; --muted: #b9c6ff; --accent: #ffd23f; --accent-hover: #ffe27a; --accent-soft: rgba(255, 210, 63, 0.16);
       --accent-contrast: #1b1f6b; --accent2: #4fd8ff; --accent2-hover: #86e6ff; --danger: #ff5c5c; --danger-soft: rgba(255, 92, 92, 0.2);
-      --header: #ffd23f; --shadow: 4px 4px 0 rgba(0, 0, 0, 0.45); --shadow-sm: 3px 3px 0 rgba(0, 0, 0, 0.4);
+      --header: #ffd23f; --ink: #4a3520; --ink-muted: #7a6142; --gold: #ffd23f; --gold-deep: #b8791a;
+      --shadow: 4px 4px 0 rgba(0, 0, 0, 0.45); --shadow-sm: 3px 3px 0 rgba(0, 0, 0, 0.4);
     }
   }
   :root[data-theme="dark"] {
-    --bg: #050a28; --bg-accent: #0d1442; --panel: #1b1f6b; --border: #ffffff; --border-soft: rgba(255, 255, 255, 0.4);
+    --bg: #d9c393; --bg-accent: #0d1442; --panel: #1b1f6b; --border: #ffffff; --border-soft: rgba(255, 255, 255, 0.4);
     --text: #ffffff; --muted: #b9c6ff; --accent: #ffd23f; --accent-hover: #ffe27a; --accent-soft: rgba(255, 210, 63, 0.16);
     --accent-contrast: #1b1f6b; --accent2: #4fd8ff; --accent2-hover: #86e6ff; --danger: #ff5c5c; --danger-soft: rgba(255, 92, 92, 0.2);
-    --header: #ffd23f; --shadow: 4px 4px 0 rgba(0, 0, 0, 0.45); --shadow-sm: 3px 3px 0 rgba(0, 0, 0, 0.4);
+    --header: #ffd23f; --ink: #4a3520; --ink-muted: #7a6142; --gold: #ffd23f; --gold-deep: #b8791a;
+    --shadow: 4px 4px 0 rgba(0, 0, 0, 0.45); --shadow-sm: 3px 3px 0 rgba(0, 0, 0, 0.4);
   }
   :root[data-theme="light"] {
-    --bg: #050a28; --bg-accent: #0d1442; --panel: #1b1f6b; --border: #ffffff; --border-soft: rgba(255, 255, 255, 0.4);
+    --bg: #d9c393; --bg-accent: #0d1442; --panel: #1b1f6b; --border: #ffffff; --border-soft: rgba(255, 255, 255, 0.4);
     --text: #ffffff; --muted: #b9c6ff; --accent: #ffd23f; --accent-hover: #ffe27a; --accent-soft: rgba(255, 210, 63, 0.16);
     --accent-contrast: #1b1f6b; --accent2: #4fd8ff; --accent2-hover: #86e6ff; --danger: #ff5c5c; --danger-soft: rgba(255, 92, 92, 0.2);
-    --header: #ffd23f; --shadow: 4px 4px 0 rgba(0, 0, 0, 0.45); --shadow-sm: 3px 3px 0 rgba(0, 0, 0, 0.4);
+    --header: #ffd23f; --ink: #4a3520; --ink-muted: #7a6142; --gold: #ffd23f; --gold-deep: #b8791a;
+    --shadow: 4px 4px 0 rgba(0, 0, 0, 0.45); --shadow-sm: 3px 3px 0 rgba(0, 0, 0, 0.4);
   }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
   * { box-sizing: border-box; }
   body {
     font-family: "MS Gothic", "ＭＳ ゴシック", "Osaka－等幅", "Yu Gothic", "Noto Sans JP", monospace;
+    /* 古紙・魔法の書物風のパーチメントテクスチャ（染み・繊維のムラをグラデーションで疑似的に表現） */
     background:
-      radial-gradient(1.5px 1.5px at 10% 15%, rgba(255,255,255,0.6) 50%, transparent 51%),
-      radial-gradient(1.5px 1.5px at 80% 8%, rgba(255,255,255,0.5) 50%, transparent 51%),
-      radial-gradient(1px 1px at 45% 30%, rgba(255,255,255,0.4) 50%, transparent 51%),
-      radial-gradient(1.5px 1.5px at 65% 60%, rgba(255,255,255,0.5) 50%, transparent 51%),
-      radial-gradient(1px 1px at 25% 75%, rgba(255,255,255,0.4) 50%, transparent 51%),
-      radial-gradient(1.5px 1.5px at 92% 85%, rgba(255,255,255,0.5) 50%, transparent 51%),
-      linear-gradient(180deg, #050a28 0%, #0d1442 55%, #131c56 100%);
+      radial-gradient(ellipse 140% 100% at 50% 0%, rgba(255,255,255,0.12) 0%, transparent 55%),
+      radial-gradient(circle at 15% 20%, rgba(139,111,71,0.16) 0%, transparent 22%),
+      radial-gradient(circle at 85% 12%, rgba(139,111,71,0.14) 0%, transparent 20%),
+      radial-gradient(circle at 25% 85%, rgba(139,111,71,0.18) 0%, transparent 26%),
+      radial-gradient(circle at 90% 80%, rgba(139,111,71,0.15) 0%, transparent 24%),
+      radial-gradient(circle at 60% 45%, rgba(139,111,71,0.08) 0%, transparent 30%),
+      repeating-linear-gradient(0deg, rgba(139,111,71,0.05) 0px, transparent 1px, transparent 3px),
+      repeating-linear-gradient(90deg, rgba(139,111,71,0.04) 0px, transparent 1px, transparent 3px),
+      linear-gradient(160deg, #e6d3a3 0%, #d9c393 45%, #cbb37e 100%);
     background-attachment: fixed;
     color: var(--text);
     margin: 0;
@@ -66,16 +76,17 @@
     letter-spacing: 0.02em;
   }
   h1 {
-    font-size: 1.6rem; font-weight: 700; margin: 0 0 6px; color: var(--header); text-wrap: balance;
-    text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+    font-size: 1.6rem; font-weight: 700; margin: 0 0 6px; color: var(--gold-deep); text-wrap: balance;
+    text-shadow: 1.5px 1.5px 0 #3a2a12, -1px -1px 0 #3a2a12, 1px -1px 0 #3a2a12, -1px 1px 0 #3a2a12;
     letter-spacing: 0.06em;
   }
-  .subtitle { color: var(--muted); margin: 0 0 22px; font-size: 0.98rem; }
+  .subtitle { color: var(--ink-muted); margin: 0 0 22px; font-size: 0.98rem; }
   .container { max-width: 1180px; margin: 0 auto; }
   .quote-container { max-width: 720px; margin: 0 auto; }
   .advanced-settings {
     background: var(--panel); border: 3px solid var(--border); border-radius: 4px;
-    padding: 2px 16px; margin: 22px 0 20px; box-shadow: var(--shadow-sm);
+    padding: 2px 16px; margin: 22px 0 20px;
+    box-shadow: var(--shadow-sm), 0 0 0 3px var(--panel), 0 0 0 6px rgba(255,210,63,0.5);
   }
   .advanced-settings summary {
     cursor: pointer; padding: 12px 0; font-size: 0.88rem; color: var(--muted); font-weight: 600;
@@ -92,7 +103,15 @@
     border: 2px solid var(--border); border-radius: 3px; background: var(--bg-accent); color: var(--text);
     transition: border-color 0.15s ease;
   }
-  input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  input:focus, select:focus {
+    outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft), 0 0 14px rgba(255, 210, 63, 0.55);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  /* 入力中は、そのカード（ウィンドウ）の枠全体がほのかに光る */
+  .site-card:focus-within {
+    box-shadow: var(--shadow), inset 0 0 0 2px rgba(255,255,255,0.18), 0 0 0 3px var(--panel), 0 0 0 6px rgba(255,210,63,0.85), 0 0 22px rgba(255,210,63,0.4);
+  }
   button {
     font-family: inherit; font-size: 0.98rem; font-weight: 600; cursor: pointer;
     border: 2px solid var(--border); border-radius: 3px; background: var(--panel);
@@ -112,21 +131,41 @@
   .btn-danger { color: var(--danger); }
   .btn-danger:hover { color: var(--danger); background: var(--danger-soft); border-color: var(--danger); }
   .btn-danger::before { color: var(--danger); }
+  /* 最重要アクション＝「伝説のアイテム」級の特大ボタン */
   .btn-quote {
-    background: var(--accent2); color: var(--accent-contrast); border-color: var(--accent2);
-    font-size: 1.05rem; padding: 12px 26px 12px 34px; font-weight: 700;
+    background: linear-gradient(180deg, #fff6d6 0%, var(--gold) 45%, var(--gold-deep) 100%);
+    color: #3a2a12; border: 4px solid var(--gold-deep);
+    font-size: 1.5rem; padding: 18px 40px 18px 54px; font-weight: 800; letter-spacing: 0.08em;
+    border-radius: 6px;
+    box-shadow: var(--shadow), inset 0 0 0 2px rgba(255,255,255,0.55);
+    transition: box-shadow 0.2s ease, transform 0.12s ease;
   }
-  .btn-quote::before { color: var(--accent-contrast); }
-  .btn-quote:hover { background: var(--accent2-hover); border-color: var(--accent2-hover); color: var(--accent-contrast); }
+  .btn-quote::before { color: #3a2a12; font-size: 1em; left: 18px; }
+  .btn-quote:hover {
+    background: linear-gradient(180deg, #fffae8 0%, var(--accent-hover) 45%, var(--gold) 100%);
+    border-color: var(--gold-deep); color: #3a2a12; transform: translateY(-2px);
+    box-shadow: var(--shadow), inset 0 0 0 2px rgba(255,255,255,0.7), 0 0 28px 6px rgba(255, 210, 63, 0.8);
+  }
+  .btn-quote[disabled] { background: var(--panel); color: var(--text); border-color: var(--border); }
+  .btn-quote[disabled]:hover { transform: none; box-shadow: var(--shadow-sm); }
   .site-card {
     background: var(--panel); border: 3px solid var(--border); border-radius: 4px;
-    padding: 22px; margin-bottom: 24px; box-shadow: var(--shadow), inset 0 0 0 2px rgba(255,255,255,0.18);
+    padding: 22px 22px 0; margin-bottom: 32px;
+    box-shadow: var(--shadow), inset 0 0 0 2px rgba(255,255,255,0.18), 0 0 0 3px var(--panel), 0 0 0 6px rgba(255,210,63,0.5);
   }
   .site-head { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
   .site-name-field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 220px; }
   .site-name-field .field-label-text { font-size: 0.78rem; color: var(--muted); font-weight: 600; }
   .required-badge { color: var(--danger); font-size: 0.7rem; font-weight: 700; margin-left: 4px; }
   .site-head input[type=text] { font-size: 1.15rem; font-weight: 700; }
+  /* 削除は「毒沼」風の小さな丸ドットにして、主要操作と誤って押しにくい位置に離す */
+  .btn-delete-site {
+    width: 34px; height: 34px; min-width: 34px; padding: 0; border-radius: 50%;
+    background: var(--danger-soft); border: 2px solid var(--danger); color: var(--danger);
+    font-size: 1rem; font-weight: 800; line-height: 1; flex-shrink: 0;
+  }
+  .btn-delete-site::before { content: none; }
+  .btn-delete-site:hover { background: var(--danger); color: var(--panel); box-shadow: 0 0 10px rgba(255, 92, 92, 0.7); }
   button[disabled] { opacity: 0.45; cursor: not-allowed; }
   button[disabled]:hover { color: var(--text); background: var(--panel); border-color: var(--border); }
   button[disabled]:hover::before { transform: translateY(-50%) scale(0); }
@@ -144,8 +183,13 @@
   .qty-pair { display: flex; align-items: center; gap: 6px; }
   .qty-pair input { width: 68px; }
   .row-actions { text-align: center; }
-  .row-actions button { padding: 6px 12px; }
+  .row-actions button {
+    width: 28px; height: 28px; min-width: 28px; padding: 0; border-radius: 50%;
+    background: var(--danger-soft); border: 2px solid var(--danger); color: var(--danger);
+    font-size: 0.85rem; font-weight: 800; line-height: 1;
+  }
   .row-actions button::before { content: none; }
+  .row-actions button:hover { background: var(--danger); color: var(--panel); box-shadow: 0 0 8px rgba(255, 92, 92, 0.7); }
   .site-summary {
     display: flex; gap: 20px; flex-wrap: wrap; margin-top: 16px; padding-top: 16px;
     border-top: 2px dashed var(--border); font-size: 1.05rem;
@@ -155,14 +199,30 @@
   }
   .site-summary .stat b { display: block; font-size: 1.4rem; font-weight: 700; color: var(--header); font-variant-numeric: tabular-nums; }
   .site-summary .stat span { color: var(--muted); font-size: 0.85rem; }
-  .card-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; flex-wrap: wrap; gap: 12px; }
+  /* 想定金額の「ステータスウィンドウ」。入力を変えるたびに自動で更新される */
+  .stat-gold {
+    background: linear-gradient(180deg, rgba(255,210,63,0.14), rgba(255,210,63,0.04));
+    border: 2px solid var(--gold) !important; flex: 1; min-width: 220px;
+  }
+  .stat-gold .stat-label { display: block; color: var(--accent); font-size: 0.85rem; font-weight: 700; margin-bottom: 4px; }
+  .stat-gold b {
+    font-size: 2.1rem !important; color: var(--gold) !important;
+    text-shadow: 1.5px 1.5px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+  }
+  /* カード最下部に据える「鑑定して見積を出す」ボタンのドック（カードの結び目として常に最後に表示） */
+  .card-actions {
+    display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 12px;
+    margin: 20px -22px 0; padding: 16px 22px 20px;
+    background: var(--panel); border-top: 2px dashed var(--border-soft);
+    border-radius: 0 0 2px 2px;
+  }
   .add-row-btn { margin-top: 10px; }
   .toolbar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
   .note { color: var(--muted); font-size: 0.92rem; margin-top: 10px; }
   a.note { color: var(--accent2); text-decoration: underline; cursor: pointer; align-self: center; }
   select.type-select { min-width: 110px; }
   .custom-type-input { width: 100px; }
-  footer { text-align: center; color: var(--muted); font-size: 0.9rem; margin-top: 30px; }
+  footer { text-align: center; color: var(--ink-muted); font-size: 0.9rem; margin-top: 30px; }
   .table-scroll { overflow-x: auto; }
 
   /* スマホ表示（幅640px以下）：品目テーブルをカード形式に積み替え、余白も詰める */
@@ -193,7 +253,9 @@
   /* 金額提示画面 */
   .quote-screen {
     background: var(--panel); border: 3px solid var(--border); border-radius: 4px;
-    padding: 40px 32px; box-shadow: var(--shadow), inset 0 0 0 2px rgba(255,255,255,0.18); text-align: center;
+    padding: 40px 32px;
+    box-shadow: var(--shadow), inset 0 0 0 2px rgba(255,255,255,0.18), 0 0 0 3px var(--panel), 0 0 0 6px rgba(255,210,63,0.5);
+    text-align: center;
   }
   .quote-screen .quote-site-name { font-size: 1.1rem; font-weight: 700; color: var(--muted); margin-bottom: 4px; }
   .quote-screen .quote-headline { font-size: 1rem; font-weight: 600; color: var(--muted); margin: 0 0 18px; }
@@ -257,7 +319,9 @@
   /* 使い方・単価表 */
   .guide-screen {
     background: var(--panel); border: 3px solid var(--border); border-radius: 4px;
-    padding: 28px 30px; box-shadow: var(--shadow-sm), inset 0 0 0 2px rgba(255,255,255,0.18); text-align: left;
+    padding: 28px 30px;
+    box-shadow: var(--shadow-sm), inset 0 0 0 2px rgba(255,255,255,0.18), 0 0 0 3px var(--panel), 0 0 0 6px rgba(255,210,63,0.5);
+    text-align: left;
   }
   .guide-screen h2 { font-size: 1.1rem; color: var(--header); margin: 24px 0 12px; }
   .guide-screen h2:first-child { margin-top: 0; }
@@ -680,11 +744,11 @@ function renderSiteCard(site) {
   head.className = "site-head";
   head.innerHTML = `
     <label class="site-name-field">
-      <span class="field-label-text">企業名<span class="required-badge">必須</span></span>
+      <span class="field-label-text">📜 企業名<span class="required-badge">必須</span></span>
       <input type="text" value="${escapeAttr(site.name)}" data-role="site-name" placeholder="例：株式会社サキュレ">
       <span class="field-error"></span>
     </label>
-    <button class="btn-danger" data-role="delete-site">この案件を削除</button>
+    <button class="btn-delete-site" data-role="delete-site" title="この案件を削除">×</button>
   `;
   card.appendChild(head);
 
@@ -692,11 +756,11 @@ function renderSiteCard(site) {
   table.innerHTML = `
     <thead>
       <tr>
-        <th>種別</th>
-        <th>袋サイズ</th>
-        <th>1回あたり数量(min〜max)</th>
-        <th>頻度(週◯回)</th>
-        <th class="num-col">月間量（目安）</th>
+        <th>⚔️ 種別</th>
+        <th>🎒 袋サイズ</th>
+        <th>📦 1回あたり数量(min〜max)</th>
+        <th>🔄 頻度(週◯回)</th>
+        <th class="num-col">💰 月間量（目安）</th>
         <th></th>
       </tr>
     </thead>
@@ -722,6 +786,10 @@ function renderSiteCard(site) {
   const summaryDiv = document.createElement("div");
   summaryDiv.className = "site-summary";
   summaryDiv.innerHTML = `
+    <div class="stat stat-gold">
+      <span class="stat-label">✨ 想定金額（税別・現在の入力から自動計算）</span>
+      <b>${yen(summary.monthlyCost)}</b>
+    </div>
     <div class="stat"><b>${fmt(summary.totalQty)}</b><span>月間合計 個数（袋+枚）</span></div>
   `;
   card.appendChild(summaryDiv);
@@ -756,7 +824,7 @@ function renderSiteCard(site) {
   const nameValidation = validateRequiredText(site.name);
   const actions = document.createElement("div");
   actions.className = "card-actions";
-  actions.innerHTML = `<button class="btn-quote" data-role="show-quote" ${nameValidation.invalid ? `disabled title="企業名を入力してください"` : ""}>💰 金額提示</button>`;
+  actions.innerHTML = `<button class="btn-quote" data-role="show-quote" ${nameValidation.invalid ? `disabled title="企業名を入力してください"` : ""}>🔮 鑑定して見積を出す</button>`;
   actions.querySelector('[data-role="show-quote"]').addEventListener("click", () => {
     site.includeSetupFee = true; // 金額提示画面を開くたびに、初回手数料チェックは常にONへ戻す
     state.view = "quote";
@@ -807,31 +875,31 @@ function renderItemRow(site, item) {
   const showRange = Math.round(c.monthlyMin) !== Math.round(c.monthlyMax);
 
   tr.innerHTML = `
-    <td data-label="種別">
+    <td data-label="⚔️ 種別">
       <select class="type-select" data-role="type">
         ${TYPE_PRESETS.map(t => `<option value="${t}" ${t === item.type ? "selected" : ""}>${t}</option>`).join("")}
       </select>
       ${isCustom ? `<input type="text" class="custom-type-input" data-role="customType" value="${escapeAttr(item.customType)}" placeholder="種別名">` : ""}
     </td>
-    <td data-label="袋サイズ">
+    <td data-label="🎒 袋サイズ">
       ${hasBagSize ? `
         <select data-role="bagSize">
           ${BAG_SIZES.map(s => `<option value="${s}" ${s === item.bagSize ? "selected" : ""}>${s}L</option>`).join("")}
         </select>
       ` : `<span class="note" style="margin:0;">－</span>`}
     </td>
-    <td data-label="1回あたり数量">
+    <td data-label="📦 1回あたり数量">
       <div class="qty-pair">
         <input type="text" inputmode="decimal" data-role="qtyMin" value="${item.qtyMin}"> 〜
         <input type="text" inputmode="decimal" data-role="qtyMax" value="${item.qtyMax}" placeholder="－" title="数量が1つだけの場合は空欄でOK（最小値のみで計算します）">
       </div>
       <span class="field-error"></span>
     </td>
-    <td data-label="頻度(週◯回)">
+    <td data-label="🔄 頻度(週◯回)">
       <input type="text" inputmode="numeric" data-role="daysPerWeek" value="${item.daysPerWeek}" style="width:70px;">
       <span class="field-error"></span>
     </td>
-    <td class="num-col" data-label="月間量（目安）">
+    <td class="num-col" data-label="💰 月間量（目安）">
       <div class="monthly-qty-value">${fmt(c.monthlyAvg)}<span class="qty-unit">個/月</span></div>
       ${showRange ? `<span class="note qty-range-note">目安 ${fmt(c.monthlyMin)}〜${fmt(c.monthlyMax)}個</span>` : ""}
     </td>
@@ -1520,7 +1588,7 @@ function renderGuideScreen() {
         <li>品目ごとに「種別」「袋サイズ（45L／70L）」「1回あたり数量」「頻度（週◯回）」を入力します。
           数量が「1〜2袋」のように幅がある場合は両方、「2袋」のように1つだけの場合は数量maxを空欄にします。</li>
         <li>必要に応じて「最低基本料金」「作業条件・特記事項」を編集します。</li>
-        <li>「💰 金額提示」ボタンを押すと、お客様にご案内する金額と見積前提条件の文面が表示されます。</li>
+        <li>「🔮 鑑定して見積を出す」ボタンを押すと、お客様にご案内する金額と見積前提条件の文面が表示されます。</li>
       </ol>
 
       <h2>💴 単価・重量表</h2>
