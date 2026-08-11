@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>廃棄物コネクト 案件量計算ツール</title>
+<title>定期回収計算ツール</title>
 <style>
   /* ドラゴンクエスト風「青いウィンドウ」テーマ。ライト/ダーク切替でも見た目を統一する。 */
   :root {
@@ -311,19 +311,53 @@ const MONSTER_TIER_STEP = 2000; // 円
 const MONSTER_TIERS = [
   { name: "スライム", emoji: "🟢" },
   { name: "ドラキー", emoji: "🦇" },
-  { name: "ゴースト", emoji: "👻" },
+  { name: "ねずみ", emoji: "🐀" },
+  { name: "ちいさなクモ", emoji: "🕷️" },
   { name: "ゴブリン", emoji: "👺" },
   { name: "コボルト", emoji: "🐺" },
-  { name: "マタンゴ", emoji: "🍄" },
+  { name: "ホイミスライム", emoji: "💧" },
   { name: "さまようよろい", emoji: "🛡️" },
+  { name: "マタンゴ", emoji: "🍄" },
   { name: "しにがみ", emoji: "💀" },
   { name: "キラーパンサー", emoji: "🐆" },
+  { name: "さそりばち", emoji: "🦂" },
+  { name: "どくガエル", emoji: "🐸" },
+  { name: "おおこうもり", emoji: "🦇" },
   { name: "ゴーレム", emoji: "🗿" },
   { name: "デビルアーマー", emoji: "⚔️" },
   { name: "キメラ", emoji: "🦅" },
+  { name: "リザードマン", emoji: "🦎" },
+  { name: "マーマン", emoji: "🐊" },
+  { name: "アイアンタートル", emoji: "🐢" },
+  { name: "ワイルドボア", emoji: "🐗" },
+  { name: "グリズリー", emoji: "🐻" },
+  { name: "サンダーイーグル", emoji: "⚡" },
+  { name: "フロストウルフ", emoji: "❄️" },
+  { name: "のろいのめだま", emoji: "👁️" },
+  { name: "デュラハン", emoji: "🐴" },
+  { name: "ヘルハウンド", emoji: "🔥" },
+  { name: "マンティコア", emoji: "🦁" },
+  { name: "ワイバーン", emoji: "🐲" },
   { name: "リッチ", emoji: "🧙" },
-  { name: "ドラゴン", emoji: "🐉" },
+  { name: "ミノタウロス", emoji: "🐂" },
+  { name: "クラーケン", emoji: "🐙" },
+  { name: "バジリスク", emoji: "🐍" },
+  { name: "サイクロプス", emoji: "👹" },
+  { name: "グリフォン", emoji: "🦉" },
+  { name: "ベヒモス", emoji: "🦣" },
   { name: "だいまどう", emoji: "🔮" },
+  { name: "ダークナイト", emoji: "🗡️" },
+  { name: "ゾンビドラゴン", emoji: "🧟" },
+  { name: "ヴァンパイアロード", emoji: "🧛" },
+  { name: "アークデーモン", emoji: "👿" },
+  { name: "めいかいのばんにん", emoji: "⚰️" },
+  { name: "じゃしんのつかい", emoji: "🕸️" },
+  { name: "かえんきょじん", emoji: "🌋" },
+  { name: "らいじん", emoji: "🌩️" },
+  { name: "ちていりゅう", emoji: "🐉" },
+  { name: "げんまおう", emoji: "🌑" },
+  { name: "はかいしん", emoji: "💥" },
+  { name: "こんとんのぬし", emoji: "🌀" },
   { name: "まおう", emoji: "👑" }
 ];
 
@@ -559,7 +593,7 @@ function renderListScreen() {
   const wrap = document.createElement("div");
 
   wrap.innerHTML = `
-    <h1>廃棄物コネクト 案件量計算ツール</h1>
+    <h1>定期回収計算ツール</h1>
     <p class="subtitle">企業名を入れて、ゴミの種類と袋数・回数を入れるだけ。金額は自動で計算します。</p>
     <div class="toolbar">
       <button class="btn-primary" id="addSiteBtn">＋ 案件を追加</button>
@@ -577,7 +611,7 @@ function renderListScreen() {
         <p class="note" style="margin:8px 0 0;">※既定値は365日÷12ヶ月÷7日で算出した平均週数です。通常は変更不要です。必要な場合のみ調整してください。</p>
       </div>
     </details>
-    <footer>廃棄物コネクト｜社内用 案件量計算ツール</footer>
+    <footer>定期回収計算ツール｜社内用</footer>
   `;
   frag.appendChild(wrap);
 

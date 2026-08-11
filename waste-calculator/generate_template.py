@@ -1,4 +1,4 @@
-"""廃棄物コネクト 案件量計算ツール - Excelテンプレート生成スクリプト。
+"""定期回収計算ツール - Excelテンプレート生成スクリプト。
 
 再生成する場合: python3 generate_template.py
 出力: waste_calculator_template.xlsx
@@ -32,7 +32,7 @@ ws_help.column_dimensions["A"].width = 2
 ws_help.column_dimensions["B"].width = 100
 
 r = 2
-ws_help.cell(r, 2, "廃棄物コネクト 案件量計算ツール").font = TITLE_FONT
+ws_help.cell(r, 2, "定期回収計算ツール").font = TITLE_FONT
 r += 1
 ws_help.cell(r, 2, "ヒアリング内容から月間の袋数を自動計算するテンプレートです。").font = SUBTITLE_FONT
 r += 2
