@@ -199,16 +199,6 @@
   }
   .site-summary .stat b { display: block; font-size: 1.4rem; font-weight: 700; color: var(--header); font-variant-numeric: tabular-nums; }
   .site-summary .stat span { color: var(--muted); font-size: 0.85rem; }
-  /* 想定金額の「ステータスウィンドウ」。入力を変えるたびに自動で更新される */
-  .stat-gold {
-    background: linear-gradient(180deg, rgba(255,210,63,0.14), rgba(255,210,63,0.04));
-    border: 2px solid var(--gold) !important; flex: 1; min-width: 220px;
-  }
-  .stat-gold .stat-label { display: block; color: var(--accent); font-size: 0.85rem; font-weight: 700; margin-bottom: 4px; }
-  .stat-gold b {
-    font-size: 2.1rem !important; color: var(--gold) !important;
-    text-shadow: 1.5px 1.5px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
-  }
   /* カード最下部に据える「鑑定して見積を出す」ボタンのドック（カードの結び目として常に最後に表示） */
   .card-actions {
     display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 12px;
@@ -786,10 +776,6 @@ function renderSiteCard(site) {
   const summaryDiv = document.createElement("div");
   summaryDiv.className = "site-summary";
   summaryDiv.innerHTML = `
-    <div class="stat stat-gold">
-      <span class="stat-label">✨ 想定金額（税別・現在の入力から自動計算）</span>
-      <b>${yen(summary.monthlyCost)}</b>
-    </div>
     <div class="stat"><b>${fmt(summary.totalQty)}</b><span>月間合計 個数（袋+枚）</span></div>
   `;
   card.appendChild(summaryDiv);
