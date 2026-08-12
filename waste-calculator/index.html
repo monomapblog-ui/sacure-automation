@@ -5,236 +5,193 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>定期回収計算ツール</title>
 <style>
-  /* ドラゴンクエスト風「青いウィンドウ」テーマ＋パーチメント背景。ライト/ダーク切替でも見た目を統一する。 */
+  /* モダンSaaS風のクリーンなライト／ダークテーマ（フラットデザイン）。 */
   :root {
-    --bg: #d9c393;
-    --bg-accent: #0d1442;
-    --panel: #1b1f6b;
-    --border: #ffffff;
-    --border-soft: rgba(255, 255, 255, 0.4);
-    --text: #ffffff;
-    --muted: #b9c6ff;
-    --accent: #ffd23f;
-    --accent-hover: #ffe27a;
-    --accent-soft: rgba(255, 210, 63, 0.16);
-    --accent-contrast: #1b1f6b;
-    --accent2: #4fd8ff;
-    --accent2-hover: #86e6ff;
-    --danger: #ff5c5c;
-    --danger-soft: rgba(255, 92, 92, 0.2);
-    --header: #ffd23f;
-    --ink: #4a3520;
-    --ink-muted: #7a6142;
-    --gold: #ffd23f;
-    --gold-deep: #b8791a;
-    --shadow: 4px 4px 0 rgba(0, 0, 0, 0.45);
-    --shadow-sm: 3px 3px 0 rgba(0, 0, 0, 0.4);
+    --bg: #f7f8fa;
+    --bg-accent: #f1f4f8;
+    --panel: #ffffff;
+    --border: #e2e6ea;
+    --border-soft: #edf0f3;
+    --text: #1a2233;
+    --muted: #6b7280;
+    --accent: #2f5fdb;
+    --accent-hover: #244bb0;
+    --accent-soft: rgba(47, 95, 219, 0.1);
+    --accent-contrast: #ffffff;
+    --accent2: #0891b2;
+    --accent2-hover: #0e7490;
+    --danger: #dc2626;
+    --danger-soft: rgba(220, 38, 38, 0.08);
+    --header: #111827;
+    --shadow: 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.04);
+    --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
   }
   @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #d9c393; --bg-accent: #0d1442; --panel: #1b1f6b; --border: #ffffff; --border-soft: rgba(255, 255, 255, 0.4);
-      --text: #ffffff; --muted: #b9c6ff; --accent: #ffd23f; --accent-hover: #ffe27a; --accent-soft: rgba(255, 210, 63, 0.16);
-      --accent-contrast: #1b1f6b; --accent2: #4fd8ff; --accent2-hover: #86e6ff; --danger: #ff5c5c; --danger-soft: rgba(255, 92, 92, 0.2);
-      --header: #ffd23f; --ink: #4a3520; --ink-muted: #7a6142; --gold: #ffd23f; --gold-deep: #b8791a;
-      --shadow: 4px 4px 0 rgba(0, 0, 0, 0.45); --shadow-sm: 3px 3px 0 rgba(0, 0, 0, 0.4);
+    :root:not([data-theme="light"]) {
+      --bg: #0f1420; --bg-accent: #182030; --panel: #171d2b; --border: #2b3446; --border-soft: #232b3a;
+      --text: #e6e9ef; --muted: #94a0b4; --accent: #5b8def; --accent-hover: #7ba3f2; --accent-soft: rgba(91, 141, 239, 0.16);
+      --accent-contrast: #0b1220; --accent2: #38bdf8; --accent2-hover: #67cdfa; --danger: #f87171; --danger-soft: rgba(248, 113, 113, 0.14);
+      --header: #f1f5f9;
+      --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3); --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
     }
   }
   :root[data-theme="dark"] {
-    --bg: #d9c393; --bg-accent: #0d1442; --panel: #1b1f6b; --border: #ffffff; --border-soft: rgba(255, 255, 255, 0.4);
-    --text: #ffffff; --muted: #b9c6ff; --accent: #ffd23f; --accent-hover: #ffe27a; --accent-soft: rgba(255, 210, 63, 0.16);
-    --accent-contrast: #1b1f6b; --accent2: #4fd8ff; --accent2-hover: #86e6ff; --danger: #ff5c5c; --danger-soft: rgba(255, 92, 92, 0.2);
-    --header: #ffd23f; --ink: #4a3520; --ink-muted: #7a6142; --gold: #ffd23f; --gold-deep: #b8791a;
-    --shadow: 4px 4px 0 rgba(0, 0, 0, 0.45); --shadow-sm: 3px 3px 0 rgba(0, 0, 0, 0.4);
+    --bg: #0f1420; --bg-accent: #182030; --panel: #171d2b; --border: #2b3446; --border-soft: #232b3a;
+    --text: #e6e9ef; --muted: #94a0b4; --accent: #5b8def; --accent-hover: #7ba3f2; --accent-soft: rgba(91, 141, 239, 0.16);
+    --accent-contrast: #0b1220; --accent2: #38bdf8; --accent2-hover: #67cdfa; --danger: #f87171; --danger-soft: rgba(248, 113, 113, 0.14);
+    --header: #f1f5f9;
+    --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3); --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
   }
   :root[data-theme="light"] {
-    --bg: #d9c393; --bg-accent: #0d1442; --panel: #1b1f6b; --border: #ffffff; --border-soft: rgba(255, 255, 255, 0.4);
-    --text: #ffffff; --muted: #b9c6ff; --accent: #ffd23f; --accent-hover: #ffe27a; --accent-soft: rgba(255, 210, 63, 0.16);
-    --accent-contrast: #1b1f6b; --accent2: #4fd8ff; --accent2-hover: #86e6ff; --danger: #ff5c5c; --danger-soft: rgba(255, 92, 92, 0.2);
-    --header: #ffd23f; --ink: #4a3520; --ink-muted: #7a6142; --gold: #ffd23f; --gold-deep: #b8791a;
-    --shadow: 4px 4px 0 rgba(0, 0, 0, 0.45); --shadow-sm: 3px 3px 0 rgba(0, 0, 0, 0.4);
+    --bg: #f7f8fa; --bg-accent: #f1f4f8; --panel: #ffffff; --border: #e2e6ea; --border-soft: #edf0f3;
+    --text: #1a2233; --muted: #6b7280; --accent: #2f5fdb; --accent-hover: #244bb0; --accent-soft: rgba(47, 95, 219, 0.1);
+    --accent-contrast: #ffffff; --accent2: #0891b2; --accent2-hover: #0e7490; --danger: #dc2626; --danger-soft: rgba(220, 38, 38, 0.08);
+    --header: #111827;
+    --shadow: 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.04); --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
   }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
   * { box-sizing: border-box; }
   body {
-    font-family: "MS Gothic", "ＭＳ ゴシック", "Osaka－等幅", "Yu Gothic", "Noto Sans JP", monospace;
-    /* 古紙・魔法の書物風のパーチメントテクスチャ（染み・繊維のムラをグラデーションで疑似的に表現） */
-    background:
-      radial-gradient(ellipse 140% 100% at 50% 0%, rgba(255,255,255,0.12) 0%, transparent 55%),
-      radial-gradient(circle at 15% 20%, rgba(139,111,71,0.16) 0%, transparent 22%),
-      radial-gradient(circle at 85% 12%, rgba(139,111,71,0.14) 0%, transparent 20%),
-      radial-gradient(circle at 25% 85%, rgba(139,111,71,0.18) 0%, transparent 26%),
-      radial-gradient(circle at 90% 80%, rgba(139,111,71,0.15) 0%, transparent 24%),
-      radial-gradient(circle at 60% 45%, rgba(139,111,71,0.08) 0%, transparent 30%),
-      repeating-linear-gradient(0deg, rgba(139,111,71,0.05) 0px, transparent 1px, transparent 3px),
-      repeating-linear-gradient(90deg, rgba(139,111,71,0.04) 0px, transparent 1px, transparent 3px),
-      linear-gradient(160deg, #e6d3a3 0%, #d9c393 45%, #cbb37e 100%);
-    background-attachment: fixed;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif;
+    background: var(--bg);
     color: var(--text);
     margin: 0;
-    padding: 28px;
+    padding: 40px 32px;
     line-height: 1.6;
-    letter-spacing: 0.02em;
   }
-  h1 {
-    font-size: 1.6rem; font-weight: 700; margin: 0 0 6px; color: var(--gold-deep); text-wrap: balance;
-    text-shadow: 1.5px 1.5px 0 #3a2a12, -1px -1px 0 #3a2a12, 1px -1px 0 #3a2a12, -1px 1px 0 #3a2a12;
-    letter-spacing: 0.06em;
-  }
-  .subtitle { color: var(--ink-muted); margin: 0 0 22px; font-size: 0.98rem; }
+  h1 { font-size: 1.5rem; font-weight: 700; margin: 0 0 6px; color: var(--header); letter-spacing: -0.01em; }
+  .subtitle { color: var(--muted); margin: 0 0 28px; font-size: 0.95rem; }
   .container { max-width: 1180px; margin: 0 auto; }
   .quote-container { max-width: 720px; margin: 0 auto; }
   .advanced-settings {
-    background: var(--panel); border: 3px solid var(--border); border-radius: 4px;
-    padding: 2px 16px; margin: 22px 0 20px;
-    box-shadow: var(--shadow-sm), 0 0 0 3px var(--panel), 0 0 0 6px rgba(255,210,63,0.5);
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 2px 20px; margin: 24px 0 20px;
   }
   .advanced-settings summary {
-    cursor: pointer; padding: 12px 0; font-size: 0.88rem; color: var(--muted); font-weight: 600;
+    cursor: pointer; padding: 14px 0; font-size: 0.88rem; color: var(--muted); font-weight: 600;
     list-style: none;
   }
   .advanced-settings summary::-webkit-details-marker { display: none; }
-  .advanced-settings summary::before { content: "▸ "; color: var(--accent); }
-  .advanced-settings[open] summary::before { content: "▾ "; color: var(--accent); }
-  .advanced-settings-body { padding: 2px 0 16px; }
-  .field-block { display: block; font-size: 0.9rem; color: var(--muted); font-weight: 600; }
+  .advanced-settings summary::before { content: "▸ "; color: var(--muted); }
+  .advanced-settings[open] summary::before { content: "▾ "; color: var(--muted); }
+  .advanced-settings-body { padding: 2px 0 18px; }
+  .field-block { display: block; font-size: 0.88rem; color: var(--muted); font-weight: 600; }
   .field-block input { display: block; margin-top: 6px; width: 100px; }
   input, select {
-    font-family: inherit; font-size: 1.05rem; padding: 9px 12px;
-    border: 2px solid var(--border); border-radius: 3px; background: var(--bg-accent); color: var(--text);
-    transition: border-color 0.15s ease;
+    font-family: inherit; font-size: 1rem; padding: 9px 12px;
+    border: 1px solid var(--border); border-radius: 6px; background: var(--bg-accent); color: var(--text);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
   input:focus, select:focus {
     outline: none; border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft), 0 0 14px rgba(255, 210, 63, 0.55);
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
-  }
-  /* 入力中は、そのカード（ウィンドウ）の枠全体がほのかに光る */
-  .site-card:focus-within {
-    box-shadow: var(--shadow), inset 0 0 0 2px rgba(255,255,255,0.18), 0 0 0 3px var(--panel), 0 0 0 6px rgba(255,210,63,0.85), 0 0 22px rgba(255,210,63,0.4);
+    box-shadow: 0 0 0 3px var(--accent-soft);
   }
   button {
-    font-family: inherit; font-size: 0.98rem; font-weight: 600; cursor: pointer;
-    border: 2px solid var(--border); border-radius: 3px; background: var(--panel);
-    padding: 10px 18px 10px 26px; color: var(--text); position: relative;
-    transition: color 0.1s ease; box-shadow: var(--shadow-sm);
+    font-family: inherit; font-size: 0.92rem; font-weight: 600; cursor: pointer;
+    border: 1px solid var(--border); border-radius: 6px; background: var(--panel);
+    padding: 9px 16px; color: var(--text);
+    transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
   }
-  button::before {
-    content: "▶"; position: absolute; left: 9px; top: 50%; transform: translateY(-50%) scale(0);
-    color: var(--accent); transition: transform 0.1s ease; font-size: 0.85em;
-  }
-  button:hover { color: var(--accent); }
-  button:hover::before, button:focus-visible::before { transform: translateY(-50%) scale(1); }
+  button:hover { background: var(--bg-accent); border-color: var(--border); }
   button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .btn-primary { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
-  .btn-primary::before { color: var(--accent-contrast); }
   .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--accent-contrast); }
-  .btn-danger { color: var(--danger); }
+  .btn-danger { color: var(--danger); border-color: var(--border); }
   .btn-danger:hover { color: var(--danger); background: var(--danger-soft); border-color: var(--danger); }
-  .btn-danger::before { color: var(--danger); }
-  /* 最重要アクション＝「伝説のアイテム」級の特大ボタン */
+  /* 最重要アクション：フラットな単色ボタンで、サイズだけ大きくして視線を集める */
   .btn-quote {
-    background: linear-gradient(180deg, #fff6d6 0%, var(--gold) 45%, var(--gold-deep) 100%);
-    color: #3a2a12; border: 4px solid var(--gold-deep);
-    font-size: 1.5rem; padding: 18px 40px 18px 54px; font-weight: 800; letter-spacing: 0.08em;
-    border-radius: 6px;
-    box-shadow: var(--shadow), inset 0 0 0 2px rgba(255,255,255,0.55);
-    transition: box-shadow 0.2s ease, transform 0.12s ease;
+    background: var(--accent); color: var(--accent-contrast); border: none;
+    font-size: 1.05rem; padding: 14px 32px; font-weight: 700; letter-spacing: 0.01em;
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    transition: background 0.15s ease, box-shadow 0.15s ease;
   }
-  .btn-quote::before { color: #3a2a12; font-size: 1em; left: 18px; }
-  .btn-quote:hover {
-    background: linear-gradient(180deg, #fffae8 0%, var(--accent-hover) 45%, var(--gold) 100%);
-    border-color: var(--gold-deep); color: #3a2a12; transform: translateY(-2px);
-    box-shadow: var(--shadow), inset 0 0 0 2px rgba(255,255,255,0.7), 0 0 28px 6px rgba(255, 210, 63, 0.8);
-  }
-  .btn-quote[disabled] { background: var(--panel); color: var(--text); border-color: var(--border); }
-  .btn-quote[disabled]:hover { transform: none; box-shadow: var(--shadow-sm); }
+  .btn-quote:hover { background: var(--accent-hover); }
+  .btn-quote[disabled] { background: var(--bg-accent); color: var(--muted); box-shadow: none; }
+  .btn-quote[disabled]:hover { background: var(--bg-accent); }
   .site-card {
-    background: var(--panel); border: 3px solid var(--border); border-radius: 4px;
-    padding: 22px 22px 0; margin-bottom: 32px;
-    box-shadow: var(--shadow), inset 0 0 0 2px rgba(255,255,255,0.18), 0 0 0 3px var(--panel), 0 0 0 6px rgba(255,210,63,0.5);
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 28px 28px 0; margin-bottom: 24px;
+    box-shadow: var(--shadow-sm);
   }
-  .site-head { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
-  .site-name-field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 220px; }
+  .site-head { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .site-name-field { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 220px; }
   .site-name-field .field-label-text { font-size: 0.78rem; color: var(--muted); font-weight: 600; }
   .required-badge { color: var(--danger); font-size: 0.7rem; font-weight: 700; margin-left: 4px; }
-  .site-head input[type=text] { font-size: 1.15rem; font-weight: 700; }
-  /* 削除は「毒沼」風の小さな丸ドットにして、主要操作と誤って押しにくい位置に離す */
+  .site-head input[type=text] { font-size: 1.1rem; font-weight: 600; }
   .btn-delete-site {
-    width: 34px; height: 34px; min-width: 34px; padding: 0; border-radius: 50%;
-    background: var(--danger-soft); border: 2px solid var(--danger); color: var(--danger);
-    font-size: 1rem; font-weight: 800; line-height: 1; flex-shrink: 0;
+    width: 32px; height: 32px; min-width: 32px; padding: 0; border-radius: 50%;
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+    font-size: 0.95rem; font-weight: 600; line-height: 1; flex-shrink: 0;
   }
-  .btn-delete-site::before { content: none; }
-  .btn-delete-site:hover { background: var(--danger); color: var(--panel); box-shadow: 0 0 10px rgba(255, 92, 92, 0.7); }
-  button[disabled] { opacity: 0.45; cursor: not-allowed; }
-  button[disabled]:hover { color: var(--text); background: var(--panel); border-color: var(--border); }
-  button[disabled]:hover::before { transform: translateY(-50%) scale(0); }
-  table { border-collapse: collapse; width: 100%; font-size: 1rem; }
+  .btn-delete-site:hover { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
+  button[disabled] { opacity: 0.5; cursor: not-allowed; }
+  button[disabled]:hover { background: var(--panel); border-color: var(--border); color: var(--text); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
   thead th {
-    text-align: left; color: var(--muted); font-weight: 700; font-size: 0.9rem;
-    padding: 8px 10px; border-bottom: 2px solid var(--border-soft); white-space: nowrap;
+    text-align: left; color: var(--muted); font-weight: 600; font-size: 0.78rem;
+    padding: 0 10px 10px; border-bottom: 1px solid var(--border); white-space: nowrap;
   }
-  tbody td { padding: 10px 10px; vertical-align: middle; border-bottom: 1px solid var(--border-soft); font-variant-numeric: tabular-nums; }
+  tbody td { padding: 14px 10px; vertical-align: middle; border-bottom: 1px solid var(--border-soft); font-variant-numeric: tabular-nums; }
   tbody tr:last-child td { border-bottom: none; }
   .num-col { text-align: right; }
-  .monthly-qty-value { font-size: 1.2rem; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
-  .monthly-qty-value .qty-unit { font-size: 0.78rem; font-weight: 600; color: var(--muted); margin-left: 2px; }
-  .qty-range-note { display: block; font-size: 0.8rem; }
+  .monthly-qty-value { font-size: 1.3rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .monthly-qty-value .qty-unit { font-size: 0.74rem; font-weight: 600; color: var(--muted); margin-left: 2px; }
+  .qty-range-note { display: block; font-size: 0.78rem; }
   .qty-pair { display: flex; align-items: center; gap: 6px; }
-  .qty-pair input { width: 68px; }
+  .qty-pair input { width: 64px; }
   .row-actions { text-align: center; }
   .row-actions button {
-    width: 28px; height: 28px; min-width: 28px; padding: 0; border-radius: 50%;
-    background: var(--danger-soft); border: 2px solid var(--danger); color: var(--danger);
-    font-size: 0.85rem; font-weight: 800; line-height: 1;
+    width: 26px; height: 26px; min-width: 26px; padding: 0; border-radius: 50%;
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+    font-size: 0.8rem; font-weight: 600; line-height: 1;
   }
-  .row-actions button::before { content: none; }
-  .row-actions button:hover { background: var(--danger); color: var(--panel); box-shadow: 0 0 8px rgba(255, 92, 92, 0.7); }
+  .row-actions button:hover { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
   .site-summary {
-    display: flex; gap: 20px; flex-wrap: wrap; margin-top: 16px; padding-top: 16px;
-    border-top: 2px dashed var(--border); font-size: 1.05rem;
+    display: flex; gap: 16px; flex-wrap: wrap; margin-top: 20px; padding-top: 20px;
+    border-top: 1px solid var(--border-soft); font-size: 1rem;
   }
   .site-summary .stat {
-    background: var(--bg-accent); border: 2px solid var(--border-soft); border-radius: 3px; padding: 10px 18px; min-width: 140px;
+    background: var(--bg-accent); border: 1px solid var(--border-soft); border-radius: 8px; padding: 12px 18px; min-width: 160px;
   }
-  .site-summary .stat b { display: block; font-size: 1.4rem; font-weight: 700; color: var(--header); font-variant-numeric: tabular-nums; }
-  .site-summary .stat span { color: var(--muted); font-size: 0.85rem; }
-  /* カード最下部に据える「鑑定して見積を出す」ボタンのドック（カードの結び目として常に最後に表示） */
+  .site-summary .stat b { display: block; font-size: 1.35rem; font-weight: 700; color: var(--header); font-variant-numeric: tabular-nums; }
+  .site-summary .stat span { color: var(--muted); font-size: 0.82rem; }
   .card-actions {
     display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 12px;
-    margin: 20px -22px 0; padding: 16px 22px 20px;
-    background: var(--panel); border-top: 2px dashed var(--border-soft);
-    border-radius: 0 0 2px 2px;
+    margin: 24px -28px 0; padding: 20px 28px;
+    background: var(--bg-accent); border-top: 1px solid var(--border);
+    border-radius: 0 0 12px 12px;
   }
-  .add-row-btn { margin-top: 10px; }
-  .toolbar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-  .note { color: var(--muted); font-size: 0.92rem; margin-top: 10px; }
+  .add-row-btn { margin-top: 12px; }
+  .toolbar { display: flex; gap: 10px; margin-bottom: 24px; flex-wrap: wrap; }
+  .note { color: var(--muted); font-size: 0.88rem; margin-top: 10px; }
   a.note { color: var(--accent2); text-decoration: underline; cursor: pointer; align-self: center; }
   select.type-select { min-width: 110px; }
   .custom-type-input { width: 100px; }
-  footer { text-align: center; color: var(--ink-muted); font-size: 0.9rem; margin-top: 30px; }
+  footer { text-align: center; color: var(--muted); font-size: 0.85rem; margin-top: 36px; }
   .table-scroll { overflow-x: auto; }
 
   /* スマホ表示（幅640px以下）：品目テーブルをカード形式に積み替え、余白も詰める */
   @media (max-width: 640px) {
-    body { padding: 14px; }
-    h1 { font-size: 1.3rem; }
-    .site-card { padding: 14px; }
-    .quote-screen, .guide-screen { padding: 22px 16px; }
-    .quote-amount-big { font-size: 2.6rem; }
+    body { padding: 20px 16px; }
+    h1 { font-size: 1.25rem; }
+    .site-card { padding: 18px 18px 0; }
+    .card-actions { margin: 20px -18px 0; padding: 16px 18px; }
+    .quote-screen, .guide-screen { padding: 24px 18px; }
+    .quote-amount-big { font-size: 2.4rem; }
     .site-head { flex-direction: column; align-items: stretch; }
     .site-name-field { min-width: 0; }
     .table-scroll table, .table-scroll tbody, .table-scroll tr { display: block; width: 100%; }
     .table-scroll thead { display: none; }
     .table-scroll tr {
-      border: 2px solid var(--border-soft); border-radius: 4px; padding: 10px; margin-bottom: 12px;
+      border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 12px;
     }
     .table-scroll td {
       display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 10px;
       padding: 7px 2px; border-bottom: none; text-align: left;
     }
     .table-scroll td[data-label]::before {
-      content: attr(data-label); color: var(--muted); font-size: 0.76rem; font-weight: 700; flex-shrink: 0;
+      content: attr(data-label); color: var(--muted); font-size: 0.72rem; font-weight: 600; flex-shrink: 0;
     }
     .table-scroll td.row-actions { justify-content: flex-end; }
     .table-scroll .num-col { text-align: right; }
@@ -242,84 +199,83 @@
 
   /* 金額提示画面 */
   .quote-screen {
-    background: var(--panel); border: 3px solid var(--border); border-radius: 4px;
-    padding: 40px 32px;
-    box-shadow: var(--shadow), inset 0 0 0 2px rgba(255,255,255,0.18), 0 0 0 3px var(--panel), 0 0 0 6px rgba(255,210,63,0.5);
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 44px 36px;
+    box-shadow: var(--shadow);
     text-align: center;
   }
-  .quote-screen .quote-site-name { font-size: 1.1rem; font-weight: 700; color: var(--muted); margin-bottom: 4px; }
-  .quote-screen .quote-headline { font-size: 1rem; font-weight: 600; color: var(--muted); margin: 0 0 18px; }
+  .quote-screen .quote-site-name { font-size: 1.05rem; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+  .quote-screen .quote-headline { font-size: 0.95rem; font-weight: 500; color: var(--muted); margin: 0 0 20px; }
   .quote-amount-big {
-    font-size: 3.4rem; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums;
-    line-height: 1.15; margin: 6px 0 10px;
-    text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+    font-size: 3.1rem; font-weight: 800; color: var(--header); font-variant-numeric: tabular-nums;
+    line-height: 1.15; margin: 6px 0 14px;
   }
-  .quote-screen .quote-breakdown { font-size: 0.95rem; color: var(--muted); margin: 4px 0 20px; }
-  .quote-screen .quote-breakdown div { margin: 2px 0; }
+  .quote-screen .quote-breakdown { font-size: 0.92rem; color: var(--muted); margin: 4px 0 20px; }
+  .quote-screen .quote-breakdown div { margin: 3px 0; }
   .setup-fee-toggle {
-    display: inline-flex; align-items: center; gap: 10px; font-size: 0.95rem; font-weight: 600; color: var(--text);
-    background: var(--bg-accent); border: 2px solid var(--border-soft); padding: 10px 18px; border-radius: 3px; cursor: pointer; margin-bottom: 22px;
+    display: inline-flex; align-items: center; gap: 10px; font-size: 0.92rem; font-weight: 500; color: var(--text);
+    background: var(--bg-accent); border: 1px solid var(--border); padding: 10px 18px; border-radius: 8px; cursor: pointer; margin-bottom: 24px;
   }
-  .setup-fee-toggle input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); cursor: pointer; }
+  .setup-fee-toggle input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
   .monster-encounter {
-    margin: 4px 0 20px; padding: 14px 16px; background: var(--bg-accent); border: 2px solid var(--border-soft);
-    border-radius: 3px;
+    margin: 4px 0 24px; padding: 16px; background: var(--bg-accent); border: 1px solid var(--border-soft);
+    border-radius: 10px;
   }
-  .monster-emoji { font-size: 2.2rem; line-height: 1.2; animation: monster-bounce 1.4s ease-in-out infinite; }
-  .monster-name { font-size: 1.05rem; font-weight: 700; color: var(--header); margin-top: 4px; }
-  .monster-level { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+  .monster-emoji { font-size: 2rem; line-height: 1.2; animation: monster-bounce 1.6s ease-in-out infinite; }
+  .monster-name { font-size: 0.98rem; font-weight: 700; color: var(--text); margin-top: 4px; }
+  .monster-level { font-size: 0.76rem; color: var(--muted); margin-top: 2px; }
   @keyframes monster-bounce {
     0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-6px); }
+    50% { transform: translateY(-5px); }
   }
   .quote-warning {
-    background: var(--danger-soft); color: var(--danger); border: 2px solid var(--danger); border-radius: 3px; padding: 10px 16px;
-    font-size: 0.92rem; margin: 0 0 18px; text-align: left;
+    background: var(--danger-soft); color: var(--danger); border: 1px solid var(--danger); border-radius: 8px; padding: 10px 16px;
+    font-size: 0.88rem; margin: 0 0 18px; text-align: left;
   }
   .back-btn { margin-bottom: 20px; }
 
   /* 最低基本料金 */
   .min-fee-panel {
-    margin-top: 16px; padding: 14px 18px; border-radius: 3px; background: var(--bg-accent); border: 2px solid var(--border-soft);
+    margin-top: 20px; padding: 16px 18px; border-radius: 8px; background: var(--bg-accent); border: 1px solid var(--border-soft);
     display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
   }
-  .min-fee-panel label { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--muted); font-weight: 600; }
+  .min-fee-panel label { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; color: var(--muted); font-weight: 600; }
   .min-fee-panel input { width: 120px; }
 
   /* 入力バリデーション */
   .input-error { border-color: var(--danger) !important; background: var(--danger-soft) !important; }
-  .field-error { color: var(--danger); font-size: 0.78rem; margin-top: 2px; display: block; }
+  .field-error { color: var(--danger); font-size: 0.76rem; margin-top: 2px; display: block; }
 
   /* 見積前提条件 */
-  .terms-section { margin-top: 22px; text-align: left; }
-  .terms-section h3 { font-size: 0.98rem; color: var(--header); margin: 0 0 8px; }
+  .terms-section { margin-top: 24px; text-align: left; }
+  .terms-section h3 { font-size: 0.92rem; font-weight: 600; color: var(--header); margin: 0 0 8px; }
   .terms-section textarea {
-    width: 100%; min-height: 180px; font-family: inherit; font-size: 0.9rem; padding: 14px;
-    border-radius: 3px; border: 2px solid var(--border); background: var(--bg-accent); color: var(--text); resize: vertical;
+    width: 100%; min-height: 180px; font-family: inherit; font-size: 0.88rem; padding: 14px;
+    border-radius: 8px; border: 1px solid var(--border); background: var(--bg-accent); color: var(--text); resize: vertical;
   }
   .terms-actions { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 8px; }
-  .copy-feedback { color: var(--accent2); font-size: 0.9rem; font-weight: 700; }
-  .work-conditions-field { margin-top: 14px; }
-  .work-conditions-field label { display: block; font-size: 0.9rem; color: var(--muted); font-weight: 600; margin-bottom: 6px; }
+  .copy-feedback { color: var(--accent2); font-size: 0.88rem; font-weight: 600; }
+  .work-conditions-field { margin-top: 16px; }
+  .work-conditions-field label { display: block; font-size: 0.88rem; color: var(--muted); font-weight: 600; margin-bottom: 6px; }
   .work-conditions-field textarea {
-    width: 100%; min-height: 70px; font-family: inherit; font-size: 1rem; padding: 10px 12px;
-    border-radius: 3px; border: 2px solid var(--border); background: var(--bg-accent); color: var(--text); resize: vertical;
+    width: 100%; min-height: 70px; font-family: inherit; font-size: 0.95rem; padding: 10px 12px;
+    border-radius: 8px; border: 1px solid var(--border); background: var(--bg-accent); color: var(--text); resize: vertical;
   }
 
   /* 使い方・単価表 */
   .guide-screen {
-    background: var(--panel); border: 3px solid var(--border); border-radius: 4px;
-    padding: 28px 30px;
-    box-shadow: var(--shadow-sm), inset 0 0 0 2px rgba(255,255,255,0.18), 0 0 0 3px var(--panel), 0 0 0 6px rgba(255,210,63,0.5);
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 32px 34px;
+    box-shadow: var(--shadow-sm);
     text-align: left;
   }
-  .guide-screen h2 { font-size: 1.1rem; color: var(--header); margin: 24px 0 12px; }
+  .guide-screen h2 { font-size: 1.02rem; font-weight: 700; color: var(--header); margin: 26px 0 12px; }
   .guide-screen h2:first-child { margin-top: 0; }
   .guide-steps { margin: 0; padding-left: 1.4em; }
   .guide-steps li { margin-bottom: 10px; line-height: 1.7; }
-  .guide-price-table { font-size: 1rem; }
-  .guide-price-table th, .guide-price-table td { padding: 8px 12px; }
-  .guide-price-table thead th { background: var(--accent-soft); border-bottom: none; }
+  .guide-price-table { font-size: 0.95rem; }
+  .guide-price-table th, .guide-price-table td { padding: 10px 12px; }
+  .guide-price-table thead th { background: var(--bg-accent); border-bottom: none; }
   .guide-price-table tbody tr:nth-child(odd) { background: var(--bg-accent); }
 </style>
 </head>
@@ -734,7 +690,7 @@ function renderSiteCard(site) {
   head.className = "site-head";
   head.innerHTML = `
     <label class="site-name-field">
-      <span class="field-label-text">📜 企業名<span class="required-badge">必須</span></span>
+      <span class="field-label-text">企業名<span class="required-badge">必須</span></span>
       <input type="text" value="${escapeAttr(site.name)}" data-role="site-name" placeholder="例：株式会社サキュレ">
       <span class="field-error"></span>
     </label>
@@ -746,11 +702,11 @@ function renderSiteCard(site) {
   table.innerHTML = `
     <thead>
       <tr>
-        <th>⚔️ 種別</th>
-        <th>🎒 袋サイズ</th>
-        <th>📦 1回あたり数量(min〜max)</th>
-        <th>🔄 頻度(週◯回)</th>
-        <th class="num-col">💰 月間量（目安）</th>
+        <th>種別</th>
+        <th>袋サイズ</th>
+        <th>1回あたり数量(min〜max)</th>
+        <th>頻度(週◯回)</th>
+        <th class="num-col">月間量（目安）</th>
         <th></th>
       </tr>
     </thead>
@@ -810,7 +766,7 @@ function renderSiteCard(site) {
   const nameValidation = validateRequiredText(site.name);
   const actions = document.createElement("div");
   actions.className = "card-actions";
-  actions.innerHTML = `<button class="btn-quote" data-role="show-quote" ${nameValidation.invalid ? `disabled title="企業名を入力してください"` : ""}>🔮 鑑定して見積を出す</button>`;
+  actions.innerHTML = `<button class="btn-quote" data-role="show-quote" ${nameValidation.invalid ? `disabled title="企業名を入力してください"` : ""}>見積を出す</button>`;
   actions.querySelector('[data-role="show-quote"]').addEventListener("click", () => {
     site.includeSetupFee = true; // 金額提示画面を開くたびに、初回手数料チェックは常にONへ戻す
     state.view = "quote";
@@ -861,31 +817,31 @@ function renderItemRow(site, item) {
   const showRange = Math.round(c.monthlyMin) !== Math.round(c.monthlyMax);
 
   tr.innerHTML = `
-    <td data-label="⚔️ 種別">
+    <td data-label="種別">
       <select class="type-select" data-role="type">
         ${TYPE_PRESETS.map(t => `<option value="${t}" ${t === item.type ? "selected" : ""}>${t}</option>`).join("")}
       </select>
       ${isCustom ? `<input type="text" class="custom-type-input" data-role="customType" value="${escapeAttr(item.customType)}" placeholder="種別名">` : ""}
     </td>
-    <td data-label="🎒 袋サイズ">
+    <td data-label="袋サイズ">
       ${hasBagSize ? `
         <select data-role="bagSize">
           ${BAG_SIZES.map(s => `<option value="${s}" ${s === item.bagSize ? "selected" : ""}>${s}L</option>`).join("")}
         </select>
       ` : `<span class="note" style="margin:0;">－</span>`}
     </td>
-    <td data-label="📦 1回あたり数量">
+    <td data-label="1回あたり数量">
       <div class="qty-pair">
         <input type="text" inputmode="decimal" data-role="qtyMin" value="${item.qtyMin}"> 〜
         <input type="text" inputmode="decimal" data-role="qtyMax" value="${item.qtyMax}" placeholder="－" title="数量が1つだけの場合は空欄でOK（最小値のみで計算します）">
       </div>
       <span class="field-error"></span>
     </td>
-    <td data-label="🔄 頻度(週◯回)">
+    <td data-label="頻度(週◯回)">
       <input type="text" inputmode="numeric" data-role="daysPerWeek" value="${item.daysPerWeek}" style="width:70px;">
       <span class="field-error"></span>
     </td>
-    <td class="num-col" data-label="💰 月間量（目安）">
+    <td class="num-col" data-label="月間量（目安）">
       <div class="monthly-qty-value">${fmt(c.monthlyAvg)}<span class="qty-unit">個/月</span></div>
       ${showRange ? `<span class="note qty-range-note">目安 ${fmt(c.monthlyMin)}〜${fmt(c.monthlyMax)}個</span>` : ""}
     </td>
@@ -1473,7 +1429,7 @@ function renderQuoteScreen(site) {
         <textarea data-role="termsText" readonly>${escapeHtml(termsText)}</textarea>
         <div class="terms-actions">
           <span class="copy-feedback" data-role="copyFeedback"></span>
-          <button data-role="copyTerms">📋 コピーする</button>
+          <button data-role="copyTerms">コピーする</button>
         </div>
       </div>
       <div class="terms-section">
@@ -1481,7 +1437,7 @@ function renderQuoteScreen(site) {
         <textarea data-role="breakdownEmailText" readonly>${escapeHtml(breakdownEmailText)}</textarea>
         <div class="terms-actions">
           <span class="copy-feedback" data-role="copyFeedback2"></span>
-          <button data-role="copyBreakdownEmail">📋 コピーする</button>
+          <button data-role="copyBreakdownEmail">コピーする</button>
         </div>
       </div>
       <div class="terms-section">
@@ -1489,7 +1445,7 @@ function renderQuoteScreen(site) {
         <p class="note" style="margin:0 0 10px;">品目・料金・作業条件をもとにした簡易な契約書の雛形です。住所・代表者名などは空欄になっているので、実際の契約締結前に内容を確認・加筆してください。<br>※ブラウザの都合上、ファイル名は「keiyakusho_日時.docx」になります（日本語ファイル名にできないため）。保存後、必要に応じてリネームしてください。</p>
         <div class="terms-actions" style="justify-content:flex-start; flex-wrap:wrap;">
           <span class="copy-feedback" data-role="downloadFeedback"></span>
-          <button data-role="downloadContract">📄 契約書をダウンロード（Word）</button>
+          <button data-role="downloadContract">契約書をダウンロード（Word）</button>
           <a data-role="downloadContractLink" target="_blank" rel="noopener" download="keiyakusho.docx" class="note" style="margin:0;">ダウンロードされない場合はこちら（別ウィンドウで開く）</a>
         </div>
       </div>
@@ -1568,16 +1524,16 @@ function renderGuideScreen() {
   wrap.innerHTML = `
     <button class="back-btn" data-role="back">← 入力画面に戻る</button>
     <div class="guide-screen">
-      <h2>📖 使い方</h2>
+      <h2>使い方</h2>
       <ol class="guide-steps">
         <li>「＋ 案件を追加」でお客様の案件を1件作成し、企業名（必須）を入力します。</li>
         <li>品目ごとに「種別」「袋サイズ（45L／70L）」「1回あたり数量」「頻度（週◯回）」を入力します。
           数量が「1〜2袋」のように幅がある場合は両方、「2袋」のように1つだけの場合は数量maxを空欄にします。</li>
         <li>必要に応じて「最低基本料金」「作業条件・特記事項」を編集します。</li>
-        <li>「🔮 鑑定して見積を出す」ボタンを押すと、お客様にご案内する金額と見積前提条件の文面が表示されます。</li>
+        <li>「見積を出す」ボタンを押すと、お客様にご案内する金額と見積前提条件の文面が表示されます。</li>
       </ol>
 
-      <h2>💴 単価・重量表</h2>
+      <h2>単価・重量表</h2>
       <p class="note" style="margin:0 0 10px;">
         袋の重量は実測値をもとにした目安です。「1個あたり単価」＝ 想定重量 × 単価(円/kg) を、金額提示の際に内部で使用しています。
       </p>
