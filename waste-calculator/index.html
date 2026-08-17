@@ -23,6 +23,8 @@
     --danger: #dc2626;
     --danger-soft: rgba(220, 38, 38, 0.08);
     --header: #111827;
+    --fun-accent: #ca8a04;
+    --fun-accent-soft: rgba(202, 138, 4, 0.12);
     --shadow: 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.04);
     --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
   }
@@ -31,7 +33,7 @@
       --bg: #0f1420; --bg-accent: #182030; --panel: #171d2b; --border: #2b3446; --border-soft: #232b3a;
       --text: #e6e9ef; --muted: #94a0b4; --accent: #5b8def; --accent-hover: #7ba3f2; --accent-soft: rgba(91, 141, 239, 0.16);
       --accent-contrast: #0b1220; --accent2: #38bdf8; --accent2-hover: #67cdfa; --danger: #f87171; --danger-soft: rgba(248, 113, 113, 0.14);
-      --header: #f1f5f9;
+      --header: #f1f5f9; --fun-accent: #fbbf24; --fun-accent-soft: rgba(251, 191, 36, 0.18);
       --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3); --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
     }
   }
@@ -39,14 +41,14 @@
     --bg: #0f1420; --bg-accent: #182030; --panel: #171d2b; --border: #2b3446; --border-soft: #232b3a;
     --text: #e6e9ef; --muted: #94a0b4; --accent: #5b8def; --accent-hover: #7ba3f2; --accent-soft: rgba(91, 141, 239, 0.16);
     --accent-contrast: #0b1220; --accent2: #38bdf8; --accent2-hover: #67cdfa; --danger: #f87171; --danger-soft: rgba(248, 113, 113, 0.14);
-    --header: #f1f5f9;
+    --header: #f1f5f9; --fun-accent: #fbbf24; --fun-accent-soft: rgba(251, 191, 36, 0.18);
     --shadow: 0 1px 3px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3); --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
   }
   :root[data-theme="light"] {
     --bg: #f7f8fa; --bg-accent: #f1f4f8; --panel: #ffffff; --border: #e2e6ea; --border-soft: #edf0f3;
     --text: #1a2233; --muted: #6b7280; --accent: #2f5fdb; --accent-hover: #244bb0; --accent-soft: rgba(47, 95, 219, 0.1);
     --accent-contrast: #ffffff; --accent2: #0891b2; --accent2-hover: #0e7490; --danger: #dc2626; --danger-soft: rgba(220, 38, 38, 0.08);
-    --header: #111827;
+    --header: #111827; --fun-accent: #ca8a04; --fun-accent-soft: rgba(202, 138, 4, 0.12);
     --shadow: 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.04); --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
   }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
@@ -59,7 +61,10 @@
     padding: 40px 32px;
     line-height: 1.6;
   }
-  h1 { font-size: 1.5rem; font-weight: 700; margin: 0 0 6px; color: var(--header); letter-spacing: -0.01em; }
+  h1 {
+    font-size: 1.5rem; font-weight: 700; margin: 0 0 6px; color: var(--header);
+    font-family: "MS Gothic", "ＭＳ ゴシック", "Courier New", monospace; letter-spacing: 0.04em;
+  }
   .subtitle { color: var(--muted); margin: 0 0 28px; font-size: 0.95rem; }
   .container { max-width: 1180px; margin: 0 auto; }
   .quote-container { max-width: 720px; margin: 0 auto; }
@@ -98,15 +103,20 @@
   .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--accent-contrast); }
   .btn-danger { color: var(--danger); border-color: var(--border); }
   .btn-danger:hover { color: var(--danger); background: var(--danger-soft); border-color: var(--danger); }
-  /* 最重要アクション：フラットな単色ボタンで、サイズだけ大きくして視線を集める */
+  /* 最重要アクション：フラットな単色ボタンだが、ホバー時だけ小さな「▶」カーソルが覗く遊び心を残す */
   .btn-quote {
-    background: var(--accent); color: var(--accent-contrast); border: none;
-    font-size: 1.05rem; padding: 14px 32px; font-weight: 700; letter-spacing: 0.01em;
+    background: var(--accent); color: var(--accent-contrast); border: none; position: relative;
+    font-size: 1.05rem; padding: 14px 32px 14px 24px; font-weight: 700; letter-spacing: 0.01em;
     border-radius: 8px;
     box-shadow: var(--shadow);
-    transition: background 0.15s ease, box-shadow 0.15s ease;
+    transition: background 0.15s ease, box-shadow 0.15s ease, padding-left 0.15s ease;
   }
-  .btn-quote:hover { background: var(--accent-hover); }
+  .btn-quote::before {
+    content: "▶"; display: inline-block; width: 0; opacity: 0; overflow: hidden;
+    transition: width 0.15s ease, opacity 0.15s ease, margin-right 0.15s ease;
+  }
+  .btn-quote:hover:not([disabled]) { background: var(--accent-hover); }
+  .btn-quote:hover:not([disabled])::before { width: 0.8em; opacity: 1; margin-right: 6px; }
   .btn-quote[disabled] { background: var(--bg-accent); color: var(--muted); box-shadow: none; }
   .btn-quote[disabled]:hover { background: var(--bg-accent); }
   .site-card {
@@ -207,8 +217,9 @@
   .quote-screen .quote-site-name { font-size: 1.05rem; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
   .quote-screen .quote-headline { font-size: 0.95rem; font-weight: 500; color: var(--muted); margin: 0 0 20px; }
   .quote-amount-big {
+    font-family: "MS Gothic", "ＭＳ ゴシック", "Courier New", monospace;
     font-size: 3.1rem; font-weight: 800; color: var(--header); font-variant-numeric: tabular-nums;
-    line-height: 1.15; margin: 6px 0 14px;
+    line-height: 1.15; margin: 6px 0 14px; letter-spacing: 0.02em;
   }
   .quote-screen .quote-breakdown { font-size: 0.92rem; color: var(--muted); margin: 4px 0 20px; }
   .quote-screen .quote-breakdown div { margin: 3px 0; }
@@ -217,12 +228,13 @@
     background: var(--bg-accent); border: 1px solid var(--border); padding: 10px 18px; border-radius: 8px; cursor: pointer; margin-bottom: 24px;
   }
   .setup-fee-toggle input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+  /* お楽しみ要素：ここだけはドラクエ風に、点線ウィンドウ枠と金色のアクセントを残す */
   .monster-encounter {
-    margin: 4px 0 24px; padding: 16px; background: var(--bg-accent); border: 1px solid var(--border-soft);
+    margin: 4px 0 24px; padding: 18px 16px; background: var(--bg-accent); border: 2px dashed var(--fun-accent-soft);
     border-radius: 10px;
   }
-  .monster-emoji { font-size: 2rem; line-height: 1.2; animation: monster-bounce 1.6s ease-in-out infinite; }
-  .monster-name { font-size: 0.98rem; font-weight: 700; color: var(--text); margin-top: 4px; }
+  .monster-emoji { font-size: 2.3rem; line-height: 1.2; animation: monster-bounce 1.6s ease-in-out infinite; }
+  .monster-name { font-size: 1rem; font-weight: 700; color: var(--fun-accent); margin-top: 6px; }
   .monster-level { font-size: 0.76rem; color: var(--muted); margin-top: 2px; }
   @keyframes monster-bounce {
     0%, 100% { transform: translateY(0); }
