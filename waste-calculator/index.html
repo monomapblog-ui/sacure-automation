@@ -455,8 +455,13 @@ function migrateSite(site) {
   if (site.workConditions === undefined) site.workConditions = "";
   if (site.includeSetupFee === undefined) site.includeSetupFee = true;
   if (site.contractStartDate === undefined) site.contractStartDate = "";
+  site.minMonthlyFee = normalizeHalfWidth(site.minMonthlyFee);
   (site.items || []).forEach(item => {
     if (item.bagSize === undefined) item.bagSize = 45;
+    // 以前保存された全角数字（例：「２」）をここで半角に補正し、既存データも自己修復させる。
+    item.qtyMin = normalizeHalfWidth(item.qtyMin);
+    item.qtyMax = normalizeHalfWidth(item.qtyMax);
+    item.daysPerWeek = normalizeHalfWidth(item.daysPerWeek);
   });
   return site;
 }
@@ -468,6 +473,7 @@ function loadState() {
       const parsed = JSON.parse(raw);
       parsed.view = "list"; // URLを開くたびに必ずトップ（一覧）画面から始める
       parsed.sites = (parsed.sites || []).map(migrateSite);
+      if (parsed.weeksPerMonth !== undefined) parsed.weeksPerMonth = normalizeHalfWidth(parsed.weeksPerMonth);
       return parsed;
     }
   } catch (e) { /* ignore */ }
@@ -478,15 +484,28 @@ function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
+// 全角数字（IMEが有効なまま数字を打つと「２」のようになることがある）や全角の.－を
+// 半角に変換する。Number()は全角文字をNaN扱いしてしまい、無効値として0にフォールバック
+// されてしまう（見た目は正しそうなのに計算だけ狂う）ため、検証・保存の前に必ず通す。
+function normalizeHalfWidth(str) {
+  if (str === null || str === undefined) return str;
+  return String(str)
+    .replace(/[！-～]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+    .replace(/　/g, " ")
+    .replace(/−/g, "-")
+    .trim();
+}
+
 // 数値入力の検証：空欄は許可、マイナス値や数値として解釈できない値はエラー扱いにする。
 // 計算には使わせず（0として扱う）、入力欄を赤く縁取りしてエラー文言を出す。
 function validateNumberField(rawValue, { min = 0, allowBlank = true, fallback = 0 } = {}) {
-  if (rawValue === "" || rawValue === null || rawValue === undefined) {
+  const normalized = normalizeHalfWidth(rawValue);
+  if (normalized === "" || normalized === null || normalized === undefined) {
     return allowBlank
       ? { invalid: false, value: fallback }
       : { invalid: true, message: "数値を入力してください", value: fallback };
   }
-  const num = Number(rawValue);
+  const num = Number(normalized);
   if (Number.isNaN(num) || !Number.isFinite(num)) {
     return { invalid: true, message: "数値を入力してください", value: fallback };
   }
@@ -515,7 +534,7 @@ function computeItem(item) {
   const qtyMin = validateNumberField(item.qtyMin).value;
   // 最大値が未入力なら「範囲」ではなく最小値と同じ単一の数量として扱う
   const qtyMaxRaw = item.qtyMax;
-  const hasMax = qtyMaxRaw !== "" && qtyMaxRaw !== null && qtyMaxRaw !== undefined && !Number.isNaN(Number(qtyMaxRaw));
+  const hasMax = qtyMaxRaw !== "" && qtyMaxRaw !== null && qtyMaxRaw !== undefined && !Number.isNaN(Number(normalizeHalfWidth(qtyMaxRaw)));
   const qtyMax = hasMax ? validateNumberField(qtyMaxRaw).value : qtyMin;
   // 表示用の範囲は常に小さい方〜大きい方の順にする（数量maxに数量min未満の値を入れても逆転表示にならないように）
   const qtyLo = Math.min(qtyMin, qtyMax);
@@ -672,7 +691,7 @@ function renderListScreen() {
 
   const weeksEl = wrap.querySelector("#weeksPerMonth");
   markFieldValidity(weeksEl, validateNumberField(state.weeksPerMonth, { min: 0.01, allowBlank: false, fallback: 4.35 }));
-  weeksEl.addEventListener("input", (e) => { state.weeksPerMonth = e.target.value; render(); });
+  weeksEl.addEventListener("input", (e) => { state.weeksPerMonth = normalizeHalfWidth(e.target.value); render(); });
   wrap.querySelector(".advanced-settings").addEventListener("toggle", (e) => {
     advancedSettingsOpen = e.target.open;
   });
@@ -807,7 +826,7 @@ function renderSiteCard(site) {
 
   const minFeeEl = minFeePanel.querySelector('[data-role="minMonthlyFee"]');
   markFieldValidity(minFeeEl, validateNumberField(site.minMonthlyFee, { min: 0, allowBlank: false, fallback: DEFAULT_MIN_MONTHLY_FEE }));
-  minFeeEl.addEventListener("input", (e) => { site.minMonthlyFee = e.target.value; render(); });
+  minFeeEl.addEventListener("input", (e) => { site.minMonthlyFee = normalizeHalfWidth(e.target.value); render(); });
   workConditionsDiv.querySelector('[data-role="workConditions"]').addEventListener("input", (e) => {
     site.workConditions = e.target.value;
     saveState();
@@ -885,9 +904,9 @@ function renderItemRow(site, item) {
   markFieldValidity(qtyMinEl, validateNumberField(item.qtyMin));
   markFieldValidity(qtyMaxEl, validateNumberField(item.qtyMax));
   markFieldValidity(daysEl, validateNumberField(item.daysPerWeek));
-  qtyMinEl.addEventListener("input", (e) => { item.qtyMin = e.target.value; render(); });
-  qtyMaxEl.addEventListener("input", (e) => { item.qtyMax = e.target.value; render(); });
-  daysEl.addEventListener("input", (e) => { item.daysPerWeek = e.target.value; render(); });
+  qtyMinEl.addEventListener("input", (e) => { item.qtyMin = normalizeHalfWidth(e.target.value); render(); });
+  qtyMaxEl.addEventListener("input", (e) => { item.qtyMax = normalizeHalfWidth(e.target.value); render(); });
+  daysEl.addEventListener("input", (e) => { item.daysPerWeek = normalizeHalfWidth(e.target.value); render(); });
   tr.querySelector('[data-role="delete-item"]').addEventListener("click", () => {
     site.items = site.items.filter(i => i.id !== item.id);
     render();
@@ -907,7 +926,7 @@ function generateTermsText(site) {
     site.items.forEach(item => {
       const c = computeItem(item);
       const label = itemLabel(item);
-      const hasMax = item.qtyMax !== "" && item.qtyMax !== null && item.qtyMax !== undefined && !Number.isNaN(Number(item.qtyMax));
+      const hasMax = item.qtyMax !== "" && item.qtyMax !== null && item.qtyMax !== undefined && !Number.isNaN(Number(normalizeHalfWidth(item.qtyMax)));
       const qtyText = hasMax && String(item.qtyMax) !== String(item.qtyMin) ? `${item.qtyMin}〜${item.qtyMax}` : `${item.qtyMin}`;
       lines.push(`・${label}：1回あたり${qtyText}個、週${item.daysPerWeek}回収集（月間想定 ${fmt(c.monthlyAvg)}個）`);
     });
