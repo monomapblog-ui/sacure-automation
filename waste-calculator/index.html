@@ -241,6 +241,7 @@
     animation: monster-flash 0.5s ease-out, legendary-glow 2s ease-in-out 0.5s infinite;
   }
   .monster-emoji { font-size: 4.5rem; line-height: 1.2; display: inline-block; }
+  .monster-emoji svg { display: block; }
   .monster-encounter.legendary .monster-emoji { font-size: 5.2rem; }
   .monster-name {
     font-size: 1rem; font-weight: 700; color: var(--fun-accent); margin-top: 6px;
@@ -433,10 +434,101 @@ function getUnitPrice(item) {
 const SETUP_FEE = 3000;
 const DEFAULT_MIN_MONTHLY_FEE = 5000;
 
+// 一部のキャラだけ、絵文字の代わりに自作SVGイラスト（べた塗り絵文字よりイラスト風の見た目）を表示する。
+// 外部画像は使わず、単一HTMLファイル内で完結させるためインラインSVGで手描きしている。
+const SLIME_SVG = `<svg width="1em" height="1em" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <radialGradient id="slime-body" cx="35%" cy="30%" r="75%">
+      <stop offset="0%" stop-color="#baf7d0"/>
+      <stop offset="45%" stop-color="#4fd88a"/>
+      <stop offset="100%" stop-color="#1f9d5c"/>
+    </radialGradient>
+  </defs>
+  <ellipse cx="50" cy="86" rx="30" ry="6" fill="#000" opacity="0.15"/>
+  <path d="M50 12 C72 12 88 34 88 56 C88 76 71 90 50 90 C29 90 12 76 12 56 C12 34 28 12 50 12 Z" fill="url(#slime-body)" stroke="#137a45" stroke-width="2.5"/>
+  <ellipse cx="34" cy="34" rx="10" ry="7" fill="#ffffff" opacity="0.55"/>
+  <ellipse cx="38" cy="58" rx="6" ry="8" fill="#0c2a1c"/>
+  <ellipse cx="62" cy="58" rx="6" ry="8" fill="#0c2a1c"/>
+  <ellipse cx="40" cy="55" rx="2" ry="2.6" fill="#ffffff"/>
+  <ellipse cx="64" cy="55" rx="2" ry="2.6" fill="#ffffff"/>
+  <path d="M40 72 Q50 80 60 72" fill="none" stroke="#0c2a1c" stroke-width="3" stroke-linecap="round"/>
+</svg>`;
+const MAOU_SVG = `<svg width="1em" height="1em" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <linearGradient id="maou-skin" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#8a4fd8"/>
+      <stop offset="100%" stop-color="#4a1f7a"/>
+    </linearGradient>
+    <linearGradient id="maou-horn" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f2e2a8"/>
+      <stop offset="100%" stop-color="#c99a2e"/>
+    </linearGradient>
+    <linearGradient id="maou-crown" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffe97a"/>
+      <stop offset="100%" stop-color="#c9931f"/>
+    </linearGradient>
+  </defs>
+  <path d="M20 44 C10 20 26 4 30 22 L34 40 Z" fill="url(#maou-horn)" stroke="#8a6414" stroke-width="1.5"/>
+  <path d="M80 44 C90 20 74 4 70 22 L66 40 Z" fill="url(#maou-horn)" stroke="#8a6414" stroke-width="1.5"/>
+  <path d="M50 20 C68 20 78 36 78 54 C78 76 65 90 50 90 C35 90 22 76 22 54 C22 36 32 20 50 20 Z" fill="url(#maou-skin)" stroke="#2c0f4d" stroke-width="2.5"/>
+  <path d="M18 60 C14 70 16 82 24 88 L30 76 Z" fill="#1a0a2e"/>
+  <path d="M82 60 C86 70 84 82 76 88 L70 76 Z" fill="#1a0a2e"/>
+  <path d="M28 22 L50 8 L72 22 L64 30 L50 22 L36 30 Z" fill="url(#maou-crown)" stroke="#8a6414" stroke-width="1.5"/>
+  <circle cx="50" cy="16" r="4" fill="#ff5c8a"/>
+  <path d="M32 50 L44 46" stroke="#1a0a2e" stroke-width="3" stroke-linecap="round"/>
+  <path d="M68 50 L56 46" stroke="#1a0a2e" stroke-width="3" stroke-linecap="round"/>
+  <ellipse cx="38" cy="56" rx="5" ry="6" fill="#ffd23f"/>
+  <ellipse cx="62" cy="56" rx="5" ry="6" fill="#ffd23f"/>
+  <ellipse cx="38" cy="56" rx="2" ry="3" fill="#4a0d0d"/>
+  <ellipse cx="62" cy="56" rx="2" ry="3" fill="#4a0d0d"/>
+  <path d="M38 74 Q50 68 62 74" fill="none" stroke="#1a0a2e" stroke-width="3" stroke-linecap="round"/>
+</svg>`;
+const SHIN_MAOU_SVG = `<svg width="1em" height="1em" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <radialGradient id="shin-aura" cx="50%" cy="45%" r="60%">
+      <stop offset="0%" stop-color="#ffe97a" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#ffe97a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="shin-skin" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#c81f5c"/>
+      <stop offset="100%" stop-color="#4a0d24"/>
+    </linearGradient>
+    <linearGradient id="shin-wing" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3a0a1a"/>
+      <stop offset="100%" stop-color="#12030a"/>
+    </linearGradient>
+    <linearGradient id="shin-horn" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff3c4"/>
+      <stop offset="100%" stop-color="#c9931f"/>
+    </linearGradient>
+    <linearGradient id="shin-crown" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fff3c4"/>
+      <stop offset="100%" stop-color="#c9931f"/>
+    </linearGradient>
+  </defs>
+  <circle cx="50" cy="52" r="48" fill="url(#shin-aura)"/>
+  <path d="M8 40 C1 56 6 76 22 82 L26 60 C18 56 12 48 14 40 Z" fill="url(#shin-wing)"/>
+  <path d="M92 40 C99 56 94 76 78 82 L74 60 C82 56 88 48 86 40 Z" fill="url(#shin-wing)"/>
+  <path d="M16 42 C4 16 24 -2 30 18 L35 38 Z" fill="url(#shin-horn)" stroke="#8a6414" stroke-width="1.5"/>
+  <path d="M84 42 C96 16 76 -2 70 18 L65 38 Z" fill="url(#shin-horn)" stroke="#8a6414" stroke-width="1.5"/>
+  <path d="M50 18 C69 18 80 35 80 54 C80 77 66 92 50 92 C34 92 20 77 20 54 C20 35 31 18 50 18 Z" fill="url(#shin-skin)" stroke="#1c0210" stroke-width="2.5"/>
+  <path d="M22 20 L50 4 L78 20 L68 30 L50 20 L32 30 Z" fill="url(#shin-crown)" stroke="#8a6414" stroke-width="1.5"/>
+  <circle cx="50" cy="12" r="5" fill="#ff2e5c"/>
+  <circle cx="30" cy="22" r="3" fill="#5cc8ff"/>
+  <circle cx="70" cy="22" r="3" fill="#5cc8ff"/>
+  <path d="M30 48 L46 44" stroke="#1c0210" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M70 48 L54 44" stroke="#1c0210" stroke-width="3.5" stroke-linecap="round"/>
+  <ellipse cx="38" cy="55" rx="6" ry="7.5" fill="#ffe97a"/>
+  <ellipse cx="62" cy="55" rx="6" ry="7.5" fill="#ffe97a"/>
+  <ellipse cx="38" cy="55" rx="2.4" ry="3.4" fill="#3a0410"/>
+  <ellipse cx="62" cy="55" rx="2.4" ry="3.4" fill="#3a0410"/>
+  <path d="M36 76 Q50 70 64 76" fill="none" stroke="#1c0210" stroke-width="3.5" stroke-linecap="round"/>
+</svg>`;
+
 // 金額提示画面のお楽しみ要素：金額が2,000円上がるごとに、より強いモンスターが出現する。
 const MONSTER_TIER_STEP = 1500; // 円
 const MONSTER_TIERS = [
-  { name: "スライム", emoji: "🟢" },
+  { name: "スライム", emoji: "🟢", svg: SLIME_SVG },
   { name: "ドラキー", emoji: "🦇" },
   { name: "ねずみ", emoji: "🐀" },
   { name: "ちいさなクモ", emoji: "🕷️" },
@@ -515,12 +607,12 @@ const MONSTER_TIERS = [
   { name: "かみのつかい", emoji: "✨" },
   { name: "しんえんのぬし", emoji: "🌌" },
   { name: "こくうのはて", emoji: "🕳️" },
-  { name: "まおう", emoji: "👑" }
+  { name: "まおう", emoji: "👑", svg: MAOU_SVG }
 ];
 
 // 100万円以上の超大型案件だけに出現する隠しボス。
 const LEGENDARY_THRESHOLD = 1000000; // 円
-const LEGENDARY_MONSTER = { name: "しんのまおう", emoji: "🐲👑" };
+const LEGENDARY_MONSTER = { name: "しんのまおう", emoji: "🐲👑", svg: SHIN_MAOU_SVG };
 
 function getMonsterTier(amount) {
   if (amount >= LEGENDARY_THRESHOLD) {
@@ -1659,7 +1751,7 @@ function renderQuoteScreen(site) {
         ${site.includeSetupFee ? `<div>初回手数料　＋${yen(SETUP_FEE)}</div>` : ""}
       </div>
       <div class="monster-encounter${monster.legendary ? " legendary" : ""}">
-        <div class="monster-emoji" style="${monsterEmojiStyle}">${monster.emoji}</div>
+        <div class="monster-emoji" style="${monsterEmojiStyle}">${monster.svg || monster.emoji}</div>
         <div class="monster-name">${monsterNameLine}</div>
         <div class="monster-level">${monsterLevelLine}</div>
       </div>
