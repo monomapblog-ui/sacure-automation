@@ -427,9 +427,12 @@ function defaultItem(type) {
     type: type || "可燃ごみ",
     customType: "",
     bagSize: 45,
+    inputMode: "detail", // "detail"=1回あたり数量×頻度／"weekly"=週の合計をざっくり入力
     qtyMin: 1,
     qtyMax: 2,
-    daysPerWeek: 5
+    daysPerWeek: 5,
+    weeklyQtyMin: "",
+    weeklyQtyMax: ""
   };
 }
 
@@ -459,10 +462,15 @@ function migrateSite(site) {
   site.minMonthlyFee = normalizeHalfWidth(site.minMonthlyFee);
   (site.items || []).forEach(item => {
     if (item.bagSize === undefined) item.bagSize = 45;
+    if (item.inputMode === undefined) item.inputMode = "detail";
+    if (item.weeklyQtyMin === undefined) item.weeklyQtyMin = "";
+    if (item.weeklyQtyMax === undefined) item.weeklyQtyMax = "";
     // 以前保存された全角数字（例：「２」）をここで半角に補正し、既存データも自己修復させる。
     item.qtyMin = normalizeHalfWidth(item.qtyMin);
     item.qtyMax = normalizeHalfWidth(item.qtyMax);
     item.daysPerWeek = normalizeHalfWidth(item.daysPerWeek);
+    item.weeklyQtyMin = normalizeHalfWidth(item.weeklyQtyMin);
+    item.weeklyQtyMax = normalizeHalfWidth(item.weeklyQtyMax);
   });
   return site;
 }
@@ -529,14 +537,28 @@ function markFieldValidity(inputEl, result) {
   if (errorEl) errorEl.textContent = result.invalid ? result.message : "";
 }
 
+// 最大値側の欄が実際に入力されているか（空欄なら「範囲」ではなく最小値のみの単一数量として扱う）
+function hasNumericValue(raw) {
+  return raw !== "" && raw !== null && raw !== undefined && !Number.isNaN(Number(normalizeHalfWidth(raw)));
+}
+
 // monthly avg / min / max quantity for an item
 function computeItem(item) {
   const weeks = validateNumberField(state.weeksPerMonth, { min: 0.01, allowBlank: false, fallback: 4.35 }).value;
+
+  if (item.inputMode === "weekly") {
+    // 頻度が分からない新規店舗など向け：1回あたり数量×頻度ではなく、週の合計量をざっくり入力する方式
+    const wMin = validateNumberField(item.weeklyQtyMin).value;
+    const wMax = hasNumericValue(item.weeklyQtyMax) ? validateNumberField(item.weeklyQtyMax).value : wMin;
+    const wLo = Math.min(wMin, wMax);
+    const wHi = Math.max(wMin, wMax);
+    const avg = (wMin + wMax) / 2;
+    return { monthlyMin: wLo * weeks, monthlyMax: wHi * weeks, monthlyAvg: avg * weeks };
+  }
+
   const qtyMin = validateNumberField(item.qtyMin).value;
   // 最大値が未入力なら「範囲」ではなく最小値と同じ単一の数量として扱う
-  const qtyMaxRaw = item.qtyMax;
-  const hasMax = qtyMaxRaw !== "" && qtyMaxRaw !== null && qtyMaxRaw !== undefined && !Number.isNaN(Number(normalizeHalfWidth(qtyMaxRaw)));
-  const qtyMax = hasMax ? validateNumberField(qtyMaxRaw).value : qtyMin;
+  const qtyMax = hasNumericValue(item.qtyMax) ? validateNumberField(item.qtyMax).value : qtyMin;
   // 表示用の範囲は常に小さい方〜大きい方の順にする（数量maxに数量min未満の値を入れても逆転表示にならないように）
   const qtyLo = Math.min(qtyMin, qtyMax);
   const qtyHi = Math.max(qtyMin, qtyMax);
@@ -847,6 +869,34 @@ function renderItemRow(site, item) {
   const isCustom = item.type === "その他";
   const hasBagSize = BAG_SIZE_TYPES.includes(item.type);
   const showRange = Math.round(c.monthlyMin) !== Math.round(c.monthlyMax);
+  const isWeekly = item.inputMode === "weekly";
+
+  // 頻度が分からない新規店舗などは「1回あたり数量×頻度」の代わりに「週の合計量」をざっくり入力できる。
+  // 切り替えても入力済みの値は消さず保持するので、後から回数が分かれば詳しい入力に戻せる。
+  const qtyFreqHtml = isWeekly ? `
+    <td data-label="週の合計（目安）" colspan="2">
+      <div class="qty-pair">
+        <input type="text" inputmode="decimal" data-role="weeklyQtyMin" value="${item.weeklyQtyMin}" placeholder="週◯袋"> 〜
+        <input type="text" inputmode="decimal" data-role="weeklyQtyMax" value="${item.weeklyQtyMax}" placeholder="－" title="数量が1つだけの場合は空欄でOK（最小値のみで計算します）">
+      </div>
+      <span class="note" style="margin:2px 0 0;">週合計・だいたいでOK</span>
+      <span class="field-error"></span><br>
+      <a class="note" data-role="toggle-mode">回数がわかれば詳しく入力に戻す</a>
+    </td>
+  ` : `
+    <td data-label="1回あたり数量">
+      <div class="qty-pair">
+        <input type="text" inputmode="decimal" data-role="qtyMin" value="${item.qtyMin}"> 〜
+        <input type="text" inputmode="decimal" data-role="qtyMax" value="${item.qtyMax}" placeholder="－" title="数量が1つだけの場合は空欄でOK（最小値のみで計算します）">
+      </div>
+      <span class="field-error"></span>
+    </td>
+    <td data-label="頻度(週◯回)">
+      <input type="text" inputmode="numeric" data-role="daysPerWeek" value="${item.daysPerWeek}" style="width:70px;">
+      <span class="field-error"></span><br>
+      <a class="note" data-role="toggle-mode">週の合計でざっくり入力</a>
+    </td>
+  `;
 
   tr.innerHTML = `
     <td data-label="種別">
@@ -862,17 +912,7 @@ function renderItemRow(site, item) {
         </select>
       ` : `<span class="note" style="margin:0;">－</span>`}
     </td>
-    <td data-label="1回あたり数量">
-      <div class="qty-pair">
-        <input type="text" inputmode="decimal" data-role="qtyMin" value="${item.qtyMin}"> 〜
-        <input type="text" inputmode="decimal" data-role="qtyMax" value="${item.qtyMax}" placeholder="－" title="数量が1つだけの場合は空欄でOK（最小値のみで計算します）">
-      </div>
-      <span class="field-error"></span>
-    </td>
-    <td data-label="頻度(週◯回)">
-      <input type="text" inputmode="numeric" data-role="daysPerWeek" value="${item.daysPerWeek}" style="width:70px;">
-      <span class="field-error"></span>
-    </td>
+    ${qtyFreqHtml}
     <td class="num-col" data-label="月間量（目安）">
       <div class="monthly-qty-value">${fmt(c.monthlyAvg)}<span class="qty-unit">個/月</span></div>
       ${showRange ? `<span class="note qty-range-note">目安 ${fmt(c.monthlyMin)}〜${fmt(c.monthlyMax)}個</span>` : ""}
@@ -898,16 +938,34 @@ function renderItemRow(site, item) {
   if (bagSizeEl) {
     bagSizeEl.addEventListener("change", (e) => { item.bagSize = Number(e.target.value); render(); });
   }
-  const qtyMinEl = tr.querySelector('[data-role="qtyMin"]');
-  const qtyMaxEl = tr.querySelector('[data-role="qtyMax"]');
-  const daysEl = tr.querySelector('[data-role="daysPerWeek"]');
-  // 再描画のたびに現在値で検証しなおし、エラー表示が消えないようにする
-  markFieldValidity(qtyMinEl, validateNumberField(item.qtyMin));
-  markFieldValidity(qtyMaxEl, validateNumberField(item.qtyMax));
-  markFieldValidity(daysEl, validateNumberField(item.daysPerWeek));
-  qtyMinEl.addEventListener("input", (e) => { item.qtyMin = normalizeHalfWidth(e.target.value); render(); });
-  qtyMaxEl.addEventListener("input", (e) => { item.qtyMax = normalizeHalfWidth(e.target.value); render(); });
-  daysEl.addEventListener("input", (e) => { item.daysPerWeek = normalizeHalfWidth(e.target.value); render(); });
+
+  tr.querySelector('[data-role="toggle-mode"]').addEventListener("click", (e) => {
+    e.preventDefault();
+    item.inputMode = isWeekly ? "detail" : "weekly";
+    render();
+  });
+
+  if (isWeekly) {
+    const wMinEl = tr.querySelector('[data-role="weeklyQtyMin"]');
+    const wMaxEl = tr.querySelector('[data-role="weeklyQtyMax"]');
+    // 再描画のたびに現在値で検証しなおし、エラー表示が消えないようにする
+    markFieldValidity(wMinEl, validateNumberField(item.weeklyQtyMin));
+    markFieldValidity(wMaxEl, validateNumberField(item.weeklyQtyMax));
+    wMinEl.addEventListener("input", (e) => { item.weeklyQtyMin = normalizeHalfWidth(e.target.value); render(); });
+    wMaxEl.addEventListener("input", (e) => { item.weeklyQtyMax = normalizeHalfWidth(e.target.value); render(); });
+  } else {
+    const qtyMinEl = tr.querySelector('[data-role="qtyMin"]');
+    const qtyMaxEl = tr.querySelector('[data-role="qtyMax"]');
+    const daysEl = tr.querySelector('[data-role="daysPerWeek"]');
+    // 再描画のたびに現在値で検証しなおし、エラー表示が消えないようにする
+    markFieldValidity(qtyMinEl, validateNumberField(item.qtyMin));
+    markFieldValidity(qtyMaxEl, validateNumberField(item.qtyMax));
+    markFieldValidity(daysEl, validateNumberField(item.daysPerWeek));
+    qtyMinEl.addEventListener("input", (e) => { item.qtyMin = normalizeHalfWidth(e.target.value); render(); });
+    qtyMaxEl.addEventListener("input", (e) => { item.qtyMax = normalizeHalfWidth(e.target.value); render(); });
+    daysEl.addEventListener("input", (e) => { item.daysPerWeek = normalizeHalfWidth(e.target.value); render(); });
+  }
+
   tr.querySelector('[data-role="delete-item"]').addEventListener("click", () => {
     site.items = site.items.filter(i => i.id !== item.id);
     render();
@@ -927,9 +985,15 @@ function generateTermsText(site) {
     site.items.forEach(item => {
       const c = computeItem(item);
       const label = itemLabel(item);
-      const hasMax = item.qtyMax !== "" && item.qtyMax !== null && item.qtyMax !== undefined && !Number.isNaN(Number(normalizeHalfWidth(item.qtyMax)));
-      const qtyText = hasMax && String(item.qtyMax) !== String(item.qtyMin) ? `${item.qtyMin}〜${item.qtyMax}` : `${item.qtyMin}`;
-      lines.push(`・${label}：1回あたり${qtyText}個、週${item.daysPerWeek}回収集（月間想定 ${fmt(c.monthlyAvg)}個）`);
+      if (item.inputMode === "weekly") {
+        const hasMax = hasNumericValue(item.weeklyQtyMax);
+        const qtyText = hasMax && String(item.weeklyQtyMax) !== String(item.weeklyQtyMin) ? `${item.weeklyQtyMin}〜${item.weeklyQtyMax}` : `${item.weeklyQtyMin}`;
+        lines.push(`・${label}：週あたり合計${qtyText}個想定（月間想定 ${fmt(c.monthlyAvg)}個）`);
+      } else {
+        const hasMax = hasNumericValue(item.qtyMax);
+        const qtyText = hasMax && String(item.qtyMax) !== String(item.qtyMin) ? `${item.qtyMin}〜${item.qtyMax}` : `${item.qtyMin}`;
+        lines.push(`・${label}：1回あたり${qtyText}個、週${item.daysPerWeek}回収集（月間想定 ${fmt(c.monthlyAvg)}個）`);
+      }
     });
   } else {
     lines.push("・（品目が登録されていません）");
@@ -1561,6 +1625,9 @@ function renderGuideScreen() {
         <li>「＋ 案件を追加」でお客様の案件を1件作成し、企業名（必須）を入力します。</li>
         <li>品目ごとに「種別」「袋サイズ（45L／70L）」「1回あたり数量」「頻度（週◯回）」を入力します。
           数量が「1〜2袋」のように幅がある場合は両方、「2袋」のように1つだけの場合は数量maxを空欄にします。</li>
+        <li>新規店舗などで週何回にすべきか分からない場合は、「週の合計でざっくり入力」に切り替えると、
+          1回あたり数量・頻度の代わりに「週合計だいたい◯袋」だけで概算できます（後から回数が分かれば
+          「詳しく入力に戻す」でいつでも戻せます）。</li>
         <li>必要に応じて「最低基本料金」「作業条件・特記事項」を編集します。</li>
         <li>「見積を出す」ボタンを押すと、お客様にご案内する金額と見積前提条件の文面が表示されます。</li>
       </ol>
