@@ -732,12 +732,22 @@ function loadState() {
     if (raw) {
       const parsed = JSON.parse(raw);
       parsed.view = "list"; // URLを開くたびに必ずトップ（一覧）画面から始める
+      // 既定の最低基本料金を5,000円→12,000円に変更した際、保存済みデータには反映されない
+      // （＝旧デフォルト値のままか、意図的に5,000円へ変更したのか区別できない）ため、
+      // 一度だけ「旧デフォルト値と一致する案件」を新デフォルトへ引き上げる移行処理を行う。
+      // 移行後はフラグを立てて、以後は5,000円への変更もそのまま尊重する。
+      if (!parsed.minFeeDefaultMigrated) {
+        (parsed.sites || []).forEach(site => {
+          if (Number(site.minMonthlyFee) === 5000) site.minMonthlyFee = DEFAULT_MIN_MONTHLY_FEE;
+        });
+        parsed.minFeeDefaultMigrated = true;
+      }
       parsed.sites = (parsed.sites || []).map(migrateSite);
       if (parsed.weeksPerMonth !== undefined) parsed.weeksPerMonth = normalizeHalfWidth(parsed.weeksPerMonth);
       return parsed;
     }
   } catch (e) { /* ignore */ }
-  return { view: "list", activeSiteId: null, weeksPerMonth: 4.35, sites: [defaultSite("")] };
+  return { view: "list", activeSiteId: null, weeksPerMonth: 4.35, sites: [defaultSite("")], minFeeDefaultMigrated: true };
 }
 
 function saveState() {
