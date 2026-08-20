@@ -1271,6 +1271,8 @@ function generateTermsText(site) {
     lines.push(site.workConditions.trim());
     lines.push("");
   }
+  const minFee = validateNumberField(site.minMonthlyFee, { min: 0, allowBlank: false, fallback: DEFAULT_MIN_MONTHLY_FEE }).value;
+  lines.push(`月間の排出量に基づく料金が最低料金を下回る場合は、基本料金として${yen(minFee)}を頂戴いたします。`);
   lines.push("実際の排出量が上記の想定数量を大きく上回る場合、または収集頻度・排出場所などの条件に変更が生じた場合は、");
   lines.push("別途お見積りを再算定させていただく場合がございますので、あらかじめご了承ください。");
   return lines.join("\n");
