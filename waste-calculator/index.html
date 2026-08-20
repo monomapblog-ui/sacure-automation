@@ -1374,11 +1374,20 @@ function generatePrintQuoteHtml(site, summary) {
     : "";
   const noteLines = [minimumNote, unpricedNote].filter(Boolean).join("\n");
 
+  // 御社の実際の見積書雛形は、内訳表の実データ行が少ない場合でも最低6行分の罫線を空欄のまま印字して
+  // 表の体裁（伝票然とした見た目）を保っている。見た目を合わせるため、実データ行が6行に満たない分だけ
+  // 空欄行を補う。
+  const contentRowCount = itemRows.length + (site.includeSetupFee ? 1 : 0);
+  const blankRowCount = Math.max(0, 6 - contentRowCount);
+  const blankRowsHtml = Array.from({ length: blankRowCount })
+    .map(() => `<tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>`)
+    .join("");
+
   return `
     <h1>御　見　積　書</h1>
     <div class="print-quote-date">${todayText}</div>
     <div class="print-quote-meta">
-      <div class="print-quote-to">${escapeHtml(site.name) || "(未入力)"}　御中</div>
+      <div class="print-quote-to"><span class="name">${escapeHtml(site.name) || "(未入力)"}</span><span class="suffix">　御中</span></div>
       <div class="print-quote-from">
         株式会社サキュレ<br>
         環境事業部　営業部<br>
@@ -1399,6 +1408,9 @@ function generatePrintQuoteHtml(site, summary) {
     </div>
     <h2>内　訳</h2>
     <table class="print-quote-table">
+      <colgroup>
+        <col style="width:34%"><col style="width:9%"><col style="width:8%"><col style="width:11%"><col style="width:13%"><col style="width:25%">
+      </colgroup>
       <thead>
         <tr><th>摘　要</th><th>数　量</th><th>単位</th><th>単　価</th><th>金　額</th><th>備　考</th></tr>
       </thead>
@@ -1407,6 +1419,7 @@ function generatePrintQuoteHtml(site, summary) {
         <tr><td colspan="5">　${escapeHtml(site.name) || "(未入力)"}</td><td>収集頻度（曜日）</td></tr>
         ${itemRowsHtml}
         ${setupFeeRow}
+        ${blankRowsHtml}
         <tr class="print-quote-total-row"><td colspan="4">小　計</td><td class="num-col">${yen(summary.quoteTotal)}</td><td></td></tr>
         <tr class="print-quote-total-row"><td colspan="4">消費税</td><td class="num-col">${yen(tax)}</td><td></td></tr>
         <tr class="print-quote-total-row"><td colspan="4">合　計</td><td class="num-col">${yen(totalWithTax)}</td><td></td></tr>
@@ -1445,6 +1458,10 @@ function buildPrintQuoteDocument(site, summary) {
     border: none; background: #2f5fdb; color: #fff; cursor: pointer;
   }
   .print-toolbar button:hover { background: #244bb0; }
+  .print-toolbar .print-toolbar-hint {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", "Yu Gothic", sans-serif;
+    font-size: 0.8rem; color: #555; text-align: right; margin: 8px 0 0;
+  }
   .print-quote-page {
     max-width: 800px; margin: 16px auto 40px; background: #fff; padding: 32px;
     box-shadow: 0 1px 6px rgba(0,0,0,0.2); font-size: 0.92rem;
@@ -1454,17 +1471,18 @@ function buildPrintQuoteDocument(site, summary) {
   }
   .print-quote-page .print-quote-date { text-align: right; font-size: 0.9rem; margin-bottom: 22px; }
   .print-quote-page .print-quote-meta { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 4px; }
-  .print-quote-page .print-quote-to {
-    font-size: 1.2rem; font-weight: 700; border-bottom: 2px solid #111; padding-bottom: 6px;
-    display: inline-block; min-width: 220px;
+  .print-quote-page .print-quote-to { font-size: 1.2rem; font-weight: 700; }
+  .print-quote-page .print-quote-to .name {
+    border-bottom: 2px solid #111; padding-bottom: 6px; display: inline-block; min-width: 180px;
   }
+  .print-quote-page .print-quote-to .suffix { padding-bottom: 6px; display: inline-block; }
   .print-quote-page .print-quote-from { font-size: 0.82rem; line-height: 1.85; text-align: left; white-space: nowrap; }
   .print-quote-page .print-quote-fields { margin: 20px 0 18px; font-size: 0.88rem; }
   .print-quote-page .print-quote-fields > div { border-bottom: 1px solid #999; padding: 5px 2px; display: flex; }
   .print-quote-page .print-quote-fields .label { width: 92px; flex-shrink: 0; color: #333; }
   .print-quote-page .print-quote-bar { display: flex; border: 1px solid #111; margin-bottom: 18px; font-weight: 700; font-size: 1rem; }
   .print-quote-page .print-quote-bar > div { flex: 1; text-align: center; padding: 8px; }
-  .print-quote-page .print-quote-bar > div:first-child { flex: none; width: 160px; border-right: 1px solid #111; }
+  .print-quote-page .print-quote-bar > div:first-child { flex: none; width: 260px; border-right: 1px solid #111; }
   .print-quote-page h2 { font-size: 1rem; text-align: center; margin: 0 0 8px; letter-spacing: 0.4em; text-indent: 0.4em; font-weight: 700; }
   .print-quote-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; margin-bottom: 4px; }
   .print-quote-table th, .print-quote-table td { border: 1px solid #333; padding: 7px 8px; }
@@ -1485,7 +1503,10 @@ function buildPrintQuoteDocument(site, summary) {
 </style>
 </head>
 <body>
-  <div class="print-toolbar"><button type="button" onclick="window.print()">PDFとして保存・印刷する</button></div>
+  <div class="print-toolbar">
+    <button type="button" onclick="window.print()">PDFとして保存・印刷する</button>
+    <div class="print-toolbar-hint">※印刷ダイアログの詳細設定にある「ヘッダーとフッター」のチェックを外すと、日時やURLが入らずきれいに仕上がります</div>
+  </div>
   <div class="print-quote-page">${printQuoteHtml}</div>
 </body>
 </html>`;
