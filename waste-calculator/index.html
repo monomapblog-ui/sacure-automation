@@ -389,26 +389,36 @@
     @page { size: A4; margin: 18mm; }
   }
   .print-quote {
-    font-family: "MS Mincho", "ＭＳ 明朝", "Yu Mincho", serif; color: #111; background: #fff; padding: 0;
+    font-family: "MS Mincho", "ＭＳ 明朝", "Yu Mincho", serif; color: #111; background: #fff; padding: 0; font-size: 0.92rem;
   }
   .print-quote h1 {
-    font-size: 1.5rem; text-align: center; letter-spacing: 0.5em; text-indent: 0.5em; margin: 0 0 28px; color: #111;
+    font-size: 1.6rem; text-align: center; letter-spacing: 0.6em; text-indent: 0.6em; margin: 0 0 20px; color: #111;
     font-family: inherit; font-weight: 700;
   }
-  .print-quote .print-quote-date { text-align: right; font-size: 0.9rem; margin-bottom: 24px; }
-  .print-quote .print-quote-to { font-size: 1.15rem; font-weight: 700; border-bottom: 2px solid #111; padding-bottom: 6px; margin-bottom: 20px; }
-  .print-quote .print-quote-from { font-size: 0.85rem; text-align: right; margin-bottom: 28px; line-height: 1.7; }
-  .print-quote .print-quote-total {
-    font-size: 1.1rem; font-weight: 700; text-align: center; border: 2px solid #111; border-radius: 4px;
-    padding: 14px; margin-bottom: 24px;
+  .print-quote .print-quote-date { text-align: right; font-size: 0.9rem; margin-bottom: 22px; }
+  .print-quote .print-quote-meta { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 4px; }
+  .print-quote .print-quote-to {
+    font-size: 1.2rem; font-weight: 700; border-bottom: 2px solid #111; padding-bottom: 6px;
+    display: inline-block; min-width: 220px;
   }
-  .print-quote .print-quote-total b { font-size: 1.6rem; margin-left: 8px; }
-  .print-quote-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-bottom: 20px; }
-  .print-quote-table th, .print-quote-table td { border: 1px solid #333; padding: 8px 10px; }
-  .print-quote-table thead th { background: #eee; text-align: left; }
+  .print-quote .print-quote-from { font-size: 0.82rem; line-height: 1.85; text-align: left; white-space: nowrap; }
+  .print-quote .print-quote-fields { margin: 20px 0 18px; font-size: 0.88rem; }
+  .print-quote .print-quote-fields > div { border-bottom: 1px solid #999; padding: 5px 2px; display: flex; }
+  .print-quote .print-quote-fields .label { width: 92px; flex-shrink: 0; color: #333; }
+  .print-quote .print-quote-bar { display: flex; border: 1px solid #111; margin-bottom: 18px; font-weight: 700; font-size: 1rem; }
+  .print-quote .print-quote-bar > div { flex: 1; text-align: center; padding: 8px; }
+  .print-quote .print-quote-bar > div:first-child { flex: none; width: 160px; border-right: 1px solid #111; }
+  .print-quote h2 { font-size: 1rem; text-align: center; margin: 0 0 8px; letter-spacing: 0.4em; text-indent: 0.4em; font-weight: 700; }
+  .print-quote-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; margin-bottom: 4px; }
+  .print-quote-table th, .print-quote-table td { border: 1px solid #333; padding: 7px 8px; }
+  .print-quote-table thead th { background: #eee; text-align: center; }
   .print-quote-table td.num-col, .print-quote-table th.num-col { text-align: right; }
-  .print-quote-table tfoot td { font-weight: 700; }
-  .print-quote .print-quote-note { font-size: 0.8rem; color: #333; margin-top: 24px; white-space: pre-wrap; line-height: 1.7; }
+  .print-quote-table tr.print-quote-category td { font-weight: 700; }
+  .print-quote-table tr.print-quote-total-row td { font-weight: 700; text-align: center; }
+  .print-quote .print-quote-remarks { margin-top: 18px; font-size: 0.85rem; }
+  .print-quote .print-quote-remarks .label { font-weight: 700; margin-bottom: 4px; }
+  .print-quote .print-quote-remarks .body { white-space: pre-wrap; line-height: 1.7; min-height: 1.4em; }
+  .print-quote .print-quote-note { font-size: 0.78rem; color: #333; margin-top: 14px; white-space: pre-wrap; line-height: 1.7; }
 
   /* 使い方・単価表 */
   .guide-screen {
@@ -709,6 +719,7 @@ function defaultSite(name) {
     minMonthlyFee: DEFAULT_MIN_MONTHLY_FEE,
     workConditions: "",
     contractStartDate: "",
+    staffName: "",
     items: [
       defaultItem("可燃ごみ"),
       defaultItem("不燃ごみ")
@@ -724,6 +735,7 @@ function migrateSite(site) {
   if (site.workConditions === undefined) site.workConditions = "";
   if (site.includeSetupFee === undefined) site.includeSetupFee = true;
   if (site.contractStartDate === undefined) site.contractStartDate = "";
+  if (site.staffName === undefined) site.staffName = "";
   site.minMonthlyFee = normalizeHalfWidth(site.minMonthlyFee);
   (site.items || []).forEach(item => {
     if (item.bagSize === undefined) item.bagSize = 45;
@@ -1082,6 +1094,14 @@ function renderSiteCard(site) {
   `;
   card.appendChild(contractDateDiv);
 
+  const staffNameDiv = document.createElement("div");
+  staffNameDiv.className = "work-conditions-field";
+  staffNameDiv.innerHTML = `
+    <label>担当者名（見積書PDFに反映・任意）</label>
+    <input type="text" data-role="staffName" value="${escapeAttr(site.staffName)}" placeholder="例：小堀" style="max-width:200px;">
+  `;
+  card.appendChild(staffNameDiv);
+
   const nameValidation = validateRequiredText(site.name);
   const actions = document.createElement("div");
   actions.className = "card-actions";
@@ -1123,6 +1143,13 @@ function renderSiteCard(site) {
     site.contractStartDate = e.target.value;
     saveState();
   });
+  const staffNameEl = staffNameDiv.querySelector('[data-role="staffName"]');
+  // 企業名欄と同様、入力中の再描画によるスマホでの入力しづらさを避けるため、フォーカスが外れたタイミングでのみ再描画する。
+  staffNameEl.addEventListener("input", (e) => {
+    site.staffName = e.target.value;
+    saveState();
+  });
+  staffNameEl.addEventListener("blur", () => { setTimeout(render, 0); });
 
   return card;
 }
@@ -1303,51 +1330,105 @@ function generateBreakdownEmailText(site) {
 
 // PDF保存・印刷用の見積書HTML。ブラウザ標準の印刷ダイアログ（「PDFに保存」）で書き出すことを想定しており、
 // PDFのバイナリを自前で組み立てるのではなく、印刷専用のレイアウトを画面外に用意してwindow.print()を呼ぶだけにしている。
+// レイアウト・項目構成は御社の実際の見積書雛形（件名／作業場所／決算条件／有効期限、
+// 摘要・数量・単位・単価・金額・備考の内訳表、小計／消費税／合計）にできるだけ忠実に合わせている。
 function generatePrintQuoteHtml(site, summary) {
   const today = new Date();
-  const todayText = formatJapaneseDate(today.getFullYear(), today.getMonth() + 1, today.getDate());
-  const rows = summary.breakdown.map(b => `
+  const todayText = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日`;
+  const TAX_RATE = 0.1;
+  const tax = Math.round(summary.quoteTotal * TAX_RATE);
+  const totalWithTax = summary.quoteTotal + tax;
+
+  const itemRows = site.items
+    .map(item => {
+      const unitPrice = getUnitPrice(item);
+      if (unitPrice === undefined) return null;
+      const detail = getPriceDetail(item);
+      const monthlyQty = computeItem(item).monthlyAvg;
+      const freqText = item.inputMode === "weekly" ? "週合計目安" : `週${item.daysPerWeek}`;
+      return {
+        label: itemLabel(item),
+        qty: monthlyQty,
+        unitLabel: detail ? detail.unitLabel : "個",
+        unitPrice,
+        cost: monthlyQty * unitPrice,
+        freqText
+      };
+    })
+    .filter(Boolean);
+
+  const itemRowsHtml = itemRows.map(r => `
     <tr>
-      <td>${escapeHtml(b.label)}</td>
-      <td class="num-col">${fmt(b.qty)}個</td>
-      <td class="num-col">${yen(b.unitPrice)}</td>
-      <td class="num-col">${yen(b.cost)}</td>
+      <td>${escapeHtml(r.label)}</td>
+      <td class="num-col">${fmt(r.qty)}</td>
+      <td>${escapeHtml(r.unitLabel)}</td>
+      <td class="num-col">${yen(r.unitPrice)}</td>
+      <td class="num-col">${yen(r.cost)}</td>
+      <td>${escapeHtml(r.freqText)}</td>
     </tr>
   `).join("");
   const setupFeeRow = site.includeSetupFee ? `
     <tr>
       <td>初回手数料</td>
       <td class="num-col">－</td>
+      <td>－</td>
       <td class="num-col">－</td>
       <td class="num-col">${yen(SETUP_FEE)}</td>
+      <td>－</td>
     </tr>
   ` : "";
+
   const minimumNote = summary.minimumApplied
-    ? `\n※品目内訳の合計が最低基本料金（${yen(summary.minMonthlyFee)}）を下回るため、最低基本料金を適用しています。`
+    ? `※品目内訳の合計が最低基本料金（${yen(summary.minMonthlyFee)}）を下回るため、最低基本料金を適用しています。`
     : "";
   const unpricedNote = summary.unpricedCount > 0
-    ? `\n※単価未設定の品目（${summary.unpricedCount}種別）は本見積りの金額に含まれていません。`
+    ? `※単価未設定の品目（${summary.unpricedCount}種別）は本見積りの金額に含まれていません。`
     : "";
+  const noteLines = [minimumNote, unpricedNote].filter(Boolean).join("\n");
 
   return `
-    <h1>御見積書</h1>
-    <div class="print-quote-date">発行日：${todayText}</div>
-    <div class="print-quote-to">${escapeHtml(site.name) || "(未入力)"}　御中</div>
-    <div class="print-quote-from">
-      株式会社サキュレ<br>
-      東京都大田区仲池上一丁目24番地7号
+    <h1>御　見　積　書</h1>
+    <div class="print-quote-date">${todayText}</div>
+    <div class="print-quote-meta">
+      <div class="print-quote-to">${escapeHtml(site.name) || "(未入力)"}　御中</div>
+      <div class="print-quote-from">
+        株式会社サキュレ<br>
+        環境事業部　営業部<br>
+        TEL　03-3558-7206<br>
+        FAX　03-3558-6475<br>
+        担当者　${escapeHtml(site.staffName) || "　　　　"}
+      </div>
     </div>
+    <div class="print-quote-fields">
+      <div><span class="label">件　　　名</span><span>廃棄物処理　(定期回収）</span></div>
+      <div><span class="label">作業場所</span><span>貴社ご指定場所</span></div>
+      <div><span class="label">決算条件</span><span>貴店指定</span></div>
+      <div><span class="label">有効期限</span><span>1ヶ月</span></div>
+    </div>
+    <div class="print-quote-bar">
+      <div>単価見積</div>
+      <div>下記の通り　（税別）</div>
+    </div>
+    <h2>内　訳</h2>
     <table class="print-quote-table">
       <thead>
-        <tr><th>品目</th><th class="num-col">数量</th><th class="num-col">単価</th><th class="num-col">金額</th></tr>
+        <tr><th>摘　要</th><th>数　量</th><th>単位</th><th>単　価</th><th>金　額</th><th>備　考</th></tr>
       </thead>
-      <tbody>${rows}${setupFeeRow}</tbody>
-      <tfoot>
-        <tr><td colspan="3">合計金額（税別）</td><td class="num-col">${yen(summary.quoteTotal)}</td></tr>
-      </tfoot>
+      <tbody>
+        <tr class="print-quote-category"><td colspan="6">廃棄物処理　（定期回収）</td></tr>
+        <tr><td colspan="5">　${escapeHtml(site.name) || "(未入力)"}</td><td>収集頻度（曜日）</td></tr>
+        ${itemRowsHtml}
+        ${setupFeeRow}
+        <tr class="print-quote-total-row"><td colspan="4">小　計</td><td class="num-col">${yen(summary.quoteTotal)}</td><td></td></tr>
+        <tr class="print-quote-total-row"><td colspan="4">消費税</td><td class="num-col">${yen(tax)}</td><td></td></tr>
+        <tr class="print-quote-total-row"><td colspan="4">合　計</td><td class="num-col">${yen(totalWithTax)}</td><td></td></tr>
+      </tbody>
     </table>
-    <div class="print-quote-total">ご請求予定額　<b>${yen(summary.quoteTotal)}</b></div>
-    ${(minimumNote || unpricedNote) ? `<div class="print-quote-note">${(minimumNote + unpricedNote).trim()}</div>` : ""}
+    <div class="print-quote-remarks">
+      <div class="label">＜備　考＞</div>
+      <div class="body">${escapeHtml(site.workConditions)}</div>
+    </div>
+    ${noteLines ? `<div class="print-quote-note">${escapeHtml(noteLines)}</div>` : ""}
   `;
 }
 
