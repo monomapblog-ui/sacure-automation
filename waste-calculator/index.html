@@ -91,14 +91,14 @@
     outline: none; border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-soft);
   }
-  button {
+  button, a.btn-link {
     font-family: inherit; font-size: 0.92rem; font-weight: 600; cursor: pointer;
     border: 1px solid var(--border); border-radius: 6px; background: var(--panel);
-    padding: 9px 16px; color: var(--text);
+    padding: 9px 16px; color: var(--text); text-decoration: none; display: inline-block;
     transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
   }
-  button:hover { background: var(--bg-accent); border-color: var(--border); }
-  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button:hover, a.btn-link:hover { background: var(--bg-accent); border-color: var(--border); }
+  button:focus-visible, a.btn-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .btn-primary { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
   .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--accent-contrast); }
   .btn-danger { color: var(--danger); border-color: var(--border); }
@@ -379,46 +379,8 @@
     border-radius: 8px; border: 1px solid var(--border); background: var(--bg-accent); color: var(--text); resize: vertical;
   }
 
-  /* 見積書PDF：印刷ダイアログ（「PDFに保存」）用の専用レイアウト。画面上は非表示にしておき、
-     印刷時だけ表示する。他の要素はすべてvisibility:hiddenにして、この部分だけを紙面の先頭に出す。 */
-  .print-quote { display: none; }
-  @media print {
-    body * { visibility: hidden; }
-    .print-quote, .print-quote * { visibility: visible; }
-    .print-quote { display: block; position: absolute; top: 0; left: 0; width: 100%; }
-    @page { size: A4; margin: 18mm; }
-  }
-  .print-quote {
-    font-family: "MS Mincho", "ＭＳ 明朝", "Yu Mincho", serif; color: #111; background: #fff; padding: 0; font-size: 0.92rem;
-  }
-  .print-quote h1 {
-    font-size: 1.6rem; text-align: center; letter-spacing: 0.6em; text-indent: 0.6em; margin: 0 0 20px; color: #111;
-    font-family: inherit; font-weight: 700;
-  }
-  .print-quote .print-quote-date { text-align: right; font-size: 0.9rem; margin-bottom: 22px; }
-  .print-quote .print-quote-meta { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 4px; }
-  .print-quote .print-quote-to {
-    font-size: 1.2rem; font-weight: 700; border-bottom: 2px solid #111; padding-bottom: 6px;
-    display: inline-block; min-width: 220px;
-  }
-  .print-quote .print-quote-from { font-size: 0.82rem; line-height: 1.85; text-align: left; white-space: nowrap; }
-  .print-quote .print-quote-fields { margin: 20px 0 18px; font-size: 0.88rem; }
-  .print-quote .print-quote-fields > div { border-bottom: 1px solid #999; padding: 5px 2px; display: flex; }
-  .print-quote .print-quote-fields .label { width: 92px; flex-shrink: 0; color: #333; }
-  .print-quote .print-quote-bar { display: flex; border: 1px solid #111; margin-bottom: 18px; font-weight: 700; font-size: 1rem; }
-  .print-quote .print-quote-bar > div { flex: 1; text-align: center; padding: 8px; }
-  .print-quote .print-quote-bar > div:first-child { flex: none; width: 160px; border-right: 1px solid #111; }
-  .print-quote h2 { font-size: 1rem; text-align: center; margin: 0 0 8px; letter-spacing: 0.4em; text-indent: 0.4em; font-weight: 700; }
-  .print-quote-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; margin-bottom: 4px; }
-  .print-quote-table th, .print-quote-table td { border: 1px solid #333; padding: 7px 8px; }
-  .print-quote-table thead th { background: #eee; text-align: center; }
-  .print-quote-table td.num-col, .print-quote-table th.num-col { text-align: right; }
-  .print-quote-table tr.print-quote-category td { font-weight: 700; }
-  .print-quote-table tr.print-quote-total-row td { font-weight: 700; text-align: center; }
-  .print-quote .print-quote-remarks { margin-top: 18px; font-size: 0.85rem; }
-  .print-quote .print-quote-remarks .label { font-weight: 700; margin-bottom: 4px; }
-  .print-quote .print-quote-remarks .body { white-space: pre-wrap; line-height: 1.7; min-height: 1.4em; }
-  .print-quote .print-quote-note { font-size: 0.78rem; color: #333; margin-top: 14px; white-space: pre-wrap; line-height: 1.7; }
+  /* 見積書PDFのレイアウト用CSSは、Artifactのiframeサンドボックス内でwindow.print()が反応しないことがあるため、
+     このページ内には持たず、新しいタブで開く独立したHTMLドキュメント（buildPrintQuoteDocument関数）側に持たせている。 */
 
   /* 使い方・単価表 */
   .guide-screen {
@@ -1432,6 +1394,77 @@ function generatePrintQuoteHtml(site, summary) {
   `;
 }
 
+// 見積書PDFは、Artifact（claude.ai）のiframeサンドボックス内でwindow.print()を呼んでも反応しないことがある
+// （クロスオリジンiframeからの印刷が制限されるブラウザの仕様）ため、印刷専用の内容を独立したHTMLドキュメントとして
+// 新しいタブ（別ウィンドウ）で開き、そちら側で印刷する方式にしている。新しいタブはトップレベルの文書になるため、
+// iframeの制限を受けずにwindow.print()が動作する。
+function buildPrintQuoteDocument(site, summary) {
+  const printQuoteHtml = generatePrintQuoteHtml(site, summary);
+  const titleText = escapeXml(`御見積書_${site.name || ""}`);
+  return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>${titleText}</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: "MS Mincho", "ＭＳ 明朝", "Yu Mincho", serif; color: #111; background: #e8e8e8; }
+  .print-toolbar {
+    max-width: 800px; margin: 0 auto; padding: 16px 0 0; text-align: right;
+  }
+  .print-toolbar button {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hiragino Sans", "Yu Gothic", sans-serif;
+    font-size: 0.95rem; font-weight: 700; padding: 10px 22px; border-radius: 6px;
+    border: none; background: #2f5fdb; color: #fff; cursor: pointer;
+  }
+  .print-toolbar button:hover { background: #244bb0; }
+  .print-quote-page {
+    max-width: 800px; margin: 16px auto 40px; background: #fff; padding: 32px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.2); font-size: 0.92rem;
+  }
+  .print-quote-page h1 {
+    font-size: 1.6rem; text-align: center; letter-spacing: 0.6em; text-indent: 0.6em; margin: 0 0 20px; color: #111; font-weight: 700;
+  }
+  .print-quote-page .print-quote-date { text-align: right; font-size: 0.9rem; margin-bottom: 22px; }
+  .print-quote-page .print-quote-meta { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 4px; }
+  .print-quote-page .print-quote-to {
+    font-size: 1.2rem; font-weight: 700; border-bottom: 2px solid #111; padding-bottom: 6px;
+    display: inline-block; min-width: 220px;
+  }
+  .print-quote-page .print-quote-from { font-size: 0.82rem; line-height: 1.85; text-align: left; white-space: nowrap; }
+  .print-quote-page .print-quote-fields { margin: 20px 0 18px; font-size: 0.88rem; }
+  .print-quote-page .print-quote-fields > div { border-bottom: 1px solid #999; padding: 5px 2px; display: flex; }
+  .print-quote-page .print-quote-fields .label { width: 92px; flex-shrink: 0; color: #333; }
+  .print-quote-page .print-quote-bar { display: flex; border: 1px solid #111; margin-bottom: 18px; font-weight: 700; font-size: 1rem; }
+  .print-quote-page .print-quote-bar > div { flex: 1; text-align: center; padding: 8px; }
+  .print-quote-page .print-quote-bar > div:first-child { flex: none; width: 160px; border-right: 1px solid #111; }
+  .print-quote-page h2 { font-size: 1rem; text-align: center; margin: 0 0 8px; letter-spacing: 0.4em; text-indent: 0.4em; font-weight: 700; }
+  .print-quote-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; margin-bottom: 4px; }
+  .print-quote-table th, .print-quote-table td { border: 1px solid #333; padding: 7px 8px; }
+  .print-quote-table thead th { background: #eee; text-align: center; }
+  .print-quote-table td.num-col, .print-quote-table th.num-col { text-align: right; }
+  .print-quote-table tr.print-quote-category td { font-weight: 700; }
+  .print-quote-table tr.print-quote-total-row td { font-weight: 700; text-align: center; }
+  .print-quote-page .print-quote-remarks { margin-top: 18px; font-size: 0.85rem; }
+  .print-quote-page .print-quote-remarks .label { font-weight: 700; margin-bottom: 4px; }
+  .print-quote-page .print-quote-remarks .body { white-space: pre-wrap; line-height: 1.7; min-height: 1.4em; }
+  .print-quote-page .print-quote-note { font-size: 0.78rem; color: #333; margin-top: 14px; white-space: pre-wrap; line-height: 1.7; }
+  @media print {
+    body { background: #fff; }
+    .print-toolbar { display: none; }
+    .print-quote-page { box-shadow: none; margin: 0 auto; max-width: none; }
+    @page { size: A4; margin: 18mm; }
+  }
+</style>
+</head>
+<body>
+  <div class="print-toolbar"><button type="button" onclick="window.print()">PDFとして保存・印刷する</button></div>
+  <div class="print-quote-page">${printQuoteHtml}</div>
+</body>
+</html>`;
+}
+
 // ------------------------------------------------------------------
 // 契約書（Word/.docx）の生成
 // 外部ライブラリを使わず、ZIP（storeモード）とOOXMLを直接組み立てて .docx を出力する。
@@ -1893,7 +1926,6 @@ function renderQuoteScreen(site) {
 
   const termsText = generateTermsText(site);
   const breakdownEmailText = generateBreakdownEmailText(site);
-  const printQuoteHtml = generatePrintQuoteHtml(site, summary);
   const monster = getMonsterTier(summary.quoteTotal);
   const entrance = pickEntrancePattern();
   const monsterEmojiStyle = `--e-dir:${entrance.dir}; animation: ${entrance.anim} ${entrance.duration} ${entrance.easing} both, monster-bounce 1.6s ease-in-out ${entrance.duration} infinite;`;
@@ -1941,9 +1973,10 @@ function renderQuoteScreen(site) {
       </div>
       <div class="terms-section">
         <h3>見積書（PDFで保存・印刷）</h3>
-        <p class="note" style="margin:0 0 10px;">品目・金額をもとにした見積書のレイアウトを、ブラウザの印刷機能を使ってPDFで保存できます。ボタンを押すと印刷ダイアログが開くので、印刷先（送信先）を「PDFに保存」に選んで保存してください。</p>
+        <p class="note" style="margin:0 0 10px;">品目・金額をもとにした見積書のレイアウトを、新しいタブで開きます。開いたタブの「PDFとして保存・印刷する」ボタンを押すと印刷ダイアログが開くので、印刷先（送信先）を「PDFに保存」に選んで保存してください。新しいタブが開けない場合は、代わりにHTMLファイルとしてダウンロードされます（ダウンロードしたファイルを開いて同様に印刷してください）。</p>
         <div class="terms-actions" style="justify-content:flex-start; flex-wrap:wrap;">
-          <button data-role="printQuote">見積書をPDFで保存・印刷</button>
+          <span class="copy-feedback" data-role="printQuoteFeedback"></span>
+          <button data-role="printQuote">見積書を新しいタブで開く</button>
         </div>
       </div>
       <div class="terms-section">
@@ -1956,7 +1989,6 @@ function renderQuoteScreen(site) {
         </div>
       </div>
     </div>
-    <div class="print-quote">${printQuoteHtml}</div>
   `;
 
   wrap.querySelector('[data-role="back"]').addEventListener("click", () => {
@@ -1979,8 +2011,24 @@ function renderQuoteScreen(site) {
     feedback.textContent = ok ? "コピーしました！" : "コピーできませんでした。手動で選択してください。";
     setTimeout(() => { feedback.textContent = ""; }, 2500);
   });
-  wrap.querySelector('[data-role="printQuote"]').addEventListener("click", () => {
-    window.print();
+  wrap.querySelector('[data-role="printQuote"]').addEventListener("click", async () => {
+    const feedback = wrap.querySelector('[data-role="printQuoteFeedback"]');
+    feedback.textContent = "";
+    const blob = new Blob([buildPrintQuoteDocument(site, summary)], { type: "text/html" });
+    const blobUrl = URL.createObjectURL(blob);
+    const opened = window.open(blobUrl, "_blank");
+    if (opened) {
+      // 開いたタブ側でBlobを読み込むまで少し時間を置いてからURLを解放する
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 30000);
+      return;
+    }
+    // ポップアップブロック等で新しいタブが開けなかった場合は、HTMLファイルとしてダウンロードしてもらう
+    URL.revokeObjectURL(blobUrl);
+    const result = await downloadBlob(blob, "mitsumorisho.html");
+    feedback.textContent = result.ok
+      ? "新しいタブを開けなかったため、ファイルをダウンロードしました。開いて印刷してください。"
+      : (result.message || "見積書を開けませんでした。");
+    setTimeout(() => { feedback.textContent = ""; }, 5000);
   });
   wrap.querySelector('[data-role="downloadContractLink"]').href = buildContractDocxDataUrl(site);
   wrap.querySelector('[data-role="downloadContract"]').addEventListener("click", async () => {
