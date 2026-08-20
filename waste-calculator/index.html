@@ -379,6 +379,37 @@
     border-radius: 8px; border: 1px solid var(--border); background: var(--bg-accent); color: var(--text); resize: vertical;
   }
 
+  /* 見積書PDF：印刷ダイアログ（「PDFに保存」）用の専用レイアウト。画面上は非表示にしておき、
+     印刷時だけ表示する。他の要素はすべてvisibility:hiddenにして、この部分だけを紙面の先頭に出す。 */
+  .print-quote { display: none; }
+  @media print {
+    body * { visibility: hidden; }
+    .print-quote, .print-quote * { visibility: visible; }
+    .print-quote { display: block; position: absolute; top: 0; left: 0; width: 100%; }
+    @page { size: A4; margin: 18mm; }
+  }
+  .print-quote {
+    font-family: "MS Mincho", "ＭＳ 明朝", "Yu Mincho", serif; color: #111; background: #fff; padding: 0;
+  }
+  .print-quote h1 {
+    font-size: 1.5rem; text-align: center; letter-spacing: 0.5em; text-indent: 0.5em; margin: 0 0 28px; color: #111;
+    font-family: inherit; font-weight: 700;
+  }
+  .print-quote .print-quote-date { text-align: right; font-size: 0.9rem; margin-bottom: 24px; }
+  .print-quote .print-quote-to { font-size: 1.15rem; font-weight: 700; border-bottom: 2px solid #111; padding-bottom: 6px; margin-bottom: 20px; }
+  .print-quote .print-quote-from { font-size: 0.85rem; text-align: right; margin-bottom: 28px; line-height: 1.7; }
+  .print-quote .print-quote-total {
+    font-size: 1.1rem; font-weight: 700; text-align: center; border: 2px solid #111; border-radius: 4px;
+    padding: 14px; margin-bottom: 24px;
+  }
+  .print-quote .print-quote-total b { font-size: 1.6rem; margin-left: 8px; }
+  .print-quote-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-bottom: 20px; }
+  .print-quote-table th, .print-quote-table td { border: 1px solid #333; padding: 8px 10px; }
+  .print-quote-table thead th { background: #eee; text-align: left; }
+  .print-quote-table td.num-col, .print-quote-table th.num-col { text-align: right; }
+  .print-quote-table tfoot td { font-weight: 700; }
+  .print-quote .print-quote-note { font-size: 0.8rem; color: #333; margin-top: 24px; white-space: pre-wrap; line-height: 1.7; }
+
   /* 使い方・単価表 */
   .guide-screen {
     background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
@@ -1270,6 +1301,56 @@ function generateBreakdownEmailText(site) {
   return lines.join("\n");
 }
 
+// PDF保存・印刷用の見積書HTML。ブラウザ標準の印刷ダイアログ（「PDFに保存」）で書き出すことを想定しており、
+// PDFのバイナリを自前で組み立てるのではなく、印刷専用のレイアウトを画面外に用意してwindow.print()を呼ぶだけにしている。
+function generatePrintQuoteHtml(site, summary) {
+  const today = new Date();
+  const todayText = formatJapaneseDate(today.getFullYear(), today.getMonth() + 1, today.getDate());
+  const rows = summary.breakdown.map(b => `
+    <tr>
+      <td>${escapeHtml(b.label)}</td>
+      <td class="num-col">${fmt(b.qty)}個</td>
+      <td class="num-col">${yen(b.unitPrice)}</td>
+      <td class="num-col">${yen(b.cost)}</td>
+    </tr>
+  `).join("");
+  const setupFeeRow = site.includeSetupFee ? `
+    <tr>
+      <td>初回手数料</td>
+      <td class="num-col">－</td>
+      <td class="num-col">－</td>
+      <td class="num-col">${yen(SETUP_FEE)}</td>
+    </tr>
+  ` : "";
+  const minimumNote = summary.minimumApplied
+    ? `\n※品目内訳の合計が最低基本料金（${yen(summary.minMonthlyFee)}）を下回るため、最低基本料金を適用しています。`
+    : "";
+  const unpricedNote = summary.unpricedCount > 0
+    ? `\n※単価未設定の品目（${summary.unpricedCount}種別）は本見積りの金額に含まれていません。`
+    : "";
+
+  return `
+    <h1>御見積書</h1>
+    <div class="print-quote-date">発行日：${todayText}</div>
+    <div class="print-quote-to">${escapeHtml(site.name) || "(未入力)"}　御中</div>
+    <div class="print-quote-from">
+      株式会社サキュレ<br>
+      東京都大田区仲池上一丁目24番地7号
+    </div>
+    <table class="print-quote-table">
+      <thead>
+        <tr><th>品目</th><th class="num-col">数量</th><th class="num-col">単価</th><th class="num-col">金額</th></tr>
+      </thead>
+      <tbody>${rows}${setupFeeRow}</tbody>
+      <tfoot>
+        <tr><td colspan="3">合計金額（税別）</td><td class="num-col">${yen(summary.quoteTotal)}</td></tr>
+      </tfoot>
+    </table>
+    <div class="print-quote-total">ご請求予定額　<b>${yen(summary.quoteTotal)}</b></div>
+    ${(minimumNote || unpricedNote) ? `<div class="print-quote-note">${(minimumNote + unpricedNote).trim()}</div>` : ""}
+  `;
+}
+
 // ------------------------------------------------------------------
 // 契約書（Word/.docx）の生成
 // 外部ライブラリを使わず、ZIP（storeモード）とOOXMLを直接組み立てて .docx を出力する。
@@ -1731,6 +1812,7 @@ function renderQuoteScreen(site) {
 
   const termsText = generateTermsText(site);
   const breakdownEmailText = generateBreakdownEmailText(site);
+  const printQuoteHtml = generatePrintQuoteHtml(site, summary);
   const monster = getMonsterTier(summary.quoteTotal);
   const entrance = pickEntrancePattern();
   const monsterEmojiStyle = `--e-dir:${entrance.dir}; animation: ${entrance.anim} ${entrance.duration} ${entrance.easing} both, monster-bounce 1.6s ease-in-out ${entrance.duration} infinite;`;
@@ -1777,6 +1859,13 @@ function renderQuoteScreen(site) {
         </div>
       </div>
       <div class="terms-section">
+        <h3>見積書（PDFで保存・印刷）</h3>
+        <p class="note" style="margin:0 0 10px;">品目・金額をもとにした見積書のレイアウトを、ブラウザの印刷機能を使ってPDFで保存できます。ボタンを押すと印刷ダイアログが開くので、印刷先（送信先）を「PDFに保存」に選んで保存してください。</p>
+        <div class="terms-actions" style="justify-content:flex-start; flex-wrap:wrap;">
+          <button data-role="printQuote">見積書をPDFで保存・印刷</button>
+        </div>
+      </div>
+      <div class="terms-section">
         <h3>契約書（Wordファイルをダウンロード）</h3>
         <p class="note" style="margin:0 0 10px;">品目・料金・作業条件をもとにした簡易な契約書の雛形です。住所・代表者名などは空欄になっているので、実際の契約締結前に内容を確認・加筆してください。<br>※ブラウザの都合上、ファイル名は「keiyakusho_日時.docx」になります（日本語ファイル名にできないため）。保存後、必要に応じてリネームしてください。</p>
         <div class="terms-actions" style="justify-content:flex-start; flex-wrap:wrap;">
@@ -1786,6 +1875,7 @@ function renderQuoteScreen(site) {
         </div>
       </div>
     </div>
+    <div class="print-quote">${printQuoteHtml}</div>
   `;
 
   wrap.querySelector('[data-role="back"]').addEventListener("click", () => {
@@ -1807,6 +1897,9 @@ function renderQuoteScreen(site) {
     const feedback = wrap.querySelector('[data-role="copyFeedback2"]');
     feedback.textContent = ok ? "コピーしました！" : "コピーできませんでした。手動で選択してください。";
     setTimeout(() => { feedback.textContent = ""; }, 2500);
+  });
+  wrap.querySelector('[data-role="printQuote"]').addEventListener("click", () => {
+    window.print();
   });
   wrap.querySelector('[data-role="downloadContractLink"]').href = buildContractDocxDataUrl(site);
   wrap.querySelector('[data-role="downloadContract"]').addEventListener("click", async () => {
