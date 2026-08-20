@@ -1098,7 +1098,7 @@ function renderSiteCard(site) {
   staffNameDiv.className = "work-conditions-field";
   staffNameDiv.innerHTML = `
     <label>担当者名（見積書PDFに反映・任意）</label>
-    <input type="text" data-role="staffName" value="${escapeAttr(site.staffName)}" placeholder="例：小堀" style="max-width:200px;">
+    <input type="text" data-role="staffName" value="${escapeAttr(site.staffName)}" style="max-width:200px;">
   `;
   card.appendChild(staffNameDiv);
 
