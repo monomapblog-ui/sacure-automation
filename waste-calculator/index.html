@@ -148,6 +148,8 @@
   .monthly-qty-value { font-size: 1.3rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
   .monthly-qty-value .qty-unit { font-size: 0.74rem; font-weight: 600; color: var(--muted); margin-left: 2px; }
   .qty-range-note { display: block; font-size: 0.78rem; }
+  .custom-price-field { margin-top: 4px; font-size: 0.82rem; font-weight: 400; color: var(--text); }
+  .custom-price-field input { width: 80px; margin-right: 2px; }
   .qty-pair { display: flex; align-items: center; gap: 6px; }
   .qty-pair input { width: 64px; }
   .row-actions { text-align: center; }
@@ -432,7 +434,22 @@ const PRICE_TABLE = {
   "段ボール": CARDBOARD_WEIGHT_PER_SHEET * PRICE_PER_KG["段ボール"]
 };
 
+// 品目ごとに「重量(kg)×円/kg」の計算の代わりに、契約上の袋単価をそのまま使いたい場合の値。
+// 未入力・数値として解釈できない場合はundefined（＝単価未設定として金額に含めない）を返す。
+function getCustomUnitPrice(item) {
+  if (!item.useCustomPrice) return undefined;
+  const result = validateNumberField(item.customUnitPrice, { min: 0, allowBlank: true, fallback: undefined });
+  return result.invalid ? undefined : result.value;
+}
+
+// 単価直接指定モードのときの単位表記（見た目は重量ベースの単価表と同じ「袋」「枚」に合わせる）。
+function defaultBagUnitLabel(item) {
+  if (item.type === "段ボール") return "枚";
+  return BAG_SIZE_TYPES.includes(item.type) ? "袋" : "個";
+}
+
 function getUnitPrice(item) {
+  if (item.useCustomPrice) return getCustomUnitPrice(item);
   const entry = PRICE_TABLE[item.type];
   if (entry === undefined) return undefined;
   if (typeof entry === "number") return entry;
@@ -681,7 +698,9 @@ function defaultItem(type) {
     qtyMax: 2,
     daysPerWeek: 5,
     weeklyQtyMin: "",
-    weeklyQtyMax: ""
+    weeklyQtyMax: "",
+    useCustomPrice: false, // true=下記の重量×円/kg計算の代わりに、customUnitPriceを1個あたりの単価としてそのまま使う
+    customUnitPrice: ""
   };
 }
 
@@ -716,12 +735,15 @@ function migrateSite(site) {
     if (item.inputMode === undefined) item.inputMode = "detail";
     if (item.weeklyQtyMin === undefined) item.weeklyQtyMin = "";
     if (item.weeklyQtyMax === undefined) item.weeklyQtyMax = "";
+    if (item.useCustomPrice === undefined) item.useCustomPrice = false;
+    if (item.customUnitPrice === undefined) item.customUnitPrice = "";
     // 以前保存された全角数字（例：「２」）をここで半角に補正し、既存データも自己修復させる。
     item.qtyMin = normalizeHalfWidth(item.qtyMin);
     item.qtyMax = normalizeHalfWidth(item.qtyMax);
     item.daysPerWeek = normalizeHalfWidth(item.daysPerWeek);
     item.weeklyQtyMin = normalizeHalfWidth(item.weeklyQtyMin);
     item.weeklyQtyMax = normalizeHalfWidth(item.weeklyQtyMax);
+    item.customUnitPrice = normalizeHalfWidth(item.customUnitPrice);
   });
   return site;
 }
@@ -844,6 +866,10 @@ function itemLabel(item) {
 
 // 種別・袋サイズから、社内共有メール向けの「1kg◯円、月◯袋想定(1袋◯kgの場合)」を組み立てるための重量・単価情報。
 function getPriceDetail(item) {
+  if (item.useCustomPrice) {
+    if (getCustomUnitPrice(item) === undefined) return null;
+    return { custom: true, unitLabel: defaultBagUnitLabel(item) };
+  }
   const pricePerKg = PRICE_PER_KG[item.type];
   if (pricePerKg === undefined) return null;
   if (item.type === "段ボール") {
@@ -1193,6 +1219,15 @@ function renderItemRow(site, item) {
     <td class="num-col" data-label="月間量（目安）">
       <div class="monthly-qty-value">${fmt(c.monthlyAvg)}<span class="qty-unit">個/月</span></div>
       ${showRange ? `<span class="note qty-range-note">目安 ${fmt(c.monthlyMin)}〜${fmt(c.monthlyMax)}個</span>` : ""}
+      ${item.useCustomPrice ? `
+        <div class="custom-price-field">
+          <input type="text" inputmode="decimal" data-role="customUnitPrice" value="${escapeAttr(item.customUnitPrice)}" placeholder="例：350" style="width:80px;">円/${defaultBagUnitLabel(item)}
+          <span class="field-error"></span>
+        </div>
+        <a class="note" data-role="toggle-custom-price">単価表の計算に戻す</a>
+      ` : `
+        <a class="note" data-role="toggle-custom-price">単価を直接指定する</a>
+      `}
     </td>
     <td class="row-actions"><button class="btn-danger" data-role="delete-item" title="削除">×</button></td>
   `;
@@ -1221,6 +1256,17 @@ function renderItemRow(site, item) {
     item.inputMode = isWeekly ? "detail" : "weekly";
     render();
   });
+
+  tr.querySelector('[data-role="toggle-custom-price"]').addEventListener("click", (e) => {
+    e.preventDefault();
+    item.useCustomPrice = !item.useCustomPrice;
+    render();
+  });
+  const customPriceEl = tr.querySelector('[data-role="customUnitPrice"]');
+  if (customPriceEl) {
+    markFieldValidity(customPriceEl, validateNumberField(item.customUnitPrice, { min: 0, allowBlank: true, fallback: 0 }));
+    customPriceEl.addEventListener("input", (e) => { item.customUnitPrice = normalizeHalfWidth(e.target.value); render(); });
+  }
 
   if (isWeekly) {
     const wMinEl = tr.querySelector('[data-role="weeklyQtyMin"]');
@@ -1301,7 +1347,12 @@ function generateBreakdownEmailText(site) {
     const detail = getPriceDetail(item);
     if (!detail) return;
     const monthlyQty = Math.round(computeItem(item).monthlyAvg);
-    lines.push(`${itemLabelPlain(item)}：1kg${detail.pricePerKg}円、月${monthlyQty}${detail.unitLabel}想定(1${detail.unitLabel}${detail.weightPerUnit}kgの場合)`);
+    if (detail.custom) {
+      const unitPrice = getUnitPrice(item);
+      lines.push(`${itemLabelPlain(item)}：1${detail.unitLabel}${yen(unitPrice)}（袋単価契約）、月${monthlyQty}${detail.unitLabel}想定`);
+    } else {
+      lines.push(`${itemLabelPlain(item)}：1kg${detail.pricePerKg}円、月${monthlyQty}${detail.unitLabel}想定(1${detail.unitLabel}${detail.weightPerUnit}kgの場合)`);
+    }
   });
   if (site.includeSetupFee) {
     lines.push(`初回手数料:${SETUP_FEE.toLocaleString("ja-JP")}円`);
