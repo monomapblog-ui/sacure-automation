@@ -412,7 +412,12 @@
 <script>
 const STORAGE_KEY = "haikibutsu-connect-calc-v1";
 
-const TYPE_PRESETS = ["可燃ごみ", "生ごみ", "不燃ごみ", "瓶", "缶", "ペットボトル", "段ボール", "発泡スチロール", "その他"];
+// 選択肢が多いと分かりづらいとの声を受け、一旦は単価が確定している4種別のみを選択肢に表示する。
+// 生ごみ・瓶・缶・ペットボトル・その他は選択肢からは消えるが、内部のロジック自体は残しているので、
+// 必要になれば下記配列に戻すだけで再表示できる（過去に保存されたデータがこれらの種別のままでも
+// 計算自体は引き続き行われる。ただし選択肢に無いため入力画面上は選択し直せない）。
+const TYPE_PRESETS = ["可燃ごみ", "不燃ごみ", "段ボール", "発泡スチロール"];
+const TYPE_PRESETS_ALL = ["可燃ごみ", "生ごみ", "不燃ごみ", "瓶", "缶", "ペットボトル", "段ボール", "発泡スチロール", "その他"];
 
 // 袋サイズ・重量・単価の前提（詳しくは「使い方・単価表」画面にも一覧を表示）。
 // 可燃ごみ：45L≈5kg・70L≈8kg、不燃ごみ：45L≈3kg・70L≈5kg、段ボール：1枚≈1kg、
@@ -1253,10 +1258,13 @@ function renderItemRow(site, item) {
     </td>
   `;
 
+  // 選択肢を絞った後でも、以前保存されたデータが選択肢外の種別のままなら、選択がずれて
+  // 見えないよう既存の種別をそのまま選択肢に加えておく（データそのものは変更しない）。
+  const typeOptions = TYPE_PRESETS.includes(item.type) ? TYPE_PRESETS : [...TYPE_PRESETS, item.type];
   tr.innerHTML = `
     <td data-label="種別">
       <select class="type-select" data-role="type">
-        ${TYPE_PRESETS.map(t => `<option value="${t}" ${t === item.type ? "selected" : ""}>${t}</option>`).join("")}
+        ${typeOptions.map(t => `<option value="${t}" ${t === item.type ? "selected" : ""}>${t}</option>`).join("")}
       </select>
       ${isCustom ? `<input type="text" class="custom-type-input" data-role="customType" value="${escapeAttr(item.customType)}" placeholder="種別名">` : ""}
     </td>
