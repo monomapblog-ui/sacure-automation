@@ -449,13 +449,17 @@ function getCustomUnitPrice(item) {
 }
 
 // 単価直接指定モードのときの単位表記（見た目は重量ベースの単価表と同じ「袋」「枚」に合わせる）。
+// 実重量(kg)入力モードのときは、数量自体がすでにkgなので単位も「kg」にする。
 function defaultBagUnitLabel(item) {
+  if (item.inputMode === "weight") return "kg";
   if (item.type === "段ボール") return "枚";
   return BAG_SIZE_TYPES.includes(item.type) ? "袋" : "個";
 }
 
 function getUnitPrice(item) {
   if (item.useCustomPrice) return getCustomUnitPrice(item);
+  // 実重量(kg)をそのまま入力するモードでは、袋の想定重量を経由せず円/kgをそのまま単価として使う。
+  if (item.inputMode === "weight") return PRICE_PER_KG[item.type];
   const entry = PRICE_TABLE[item.type];
   if (entry === undefined) return undefined;
   if (typeof entry === "number") return entry;
@@ -705,6 +709,8 @@ function defaultItem(type) {
     daysPerWeek: 5,
     weeklyQtyMin: "",
     weeklyQtyMax: "",
+    weightQtyMin: "",
+    weightQtyMax: "",
     useCustomPrice: false, // true=下記の重量×円/kg計算の代わりに、customUnitPriceを1個あたりの単価としてそのまま使う
     customUnitPrice: ""
   };
@@ -741,6 +747,8 @@ function migrateSite(site) {
     if (item.inputMode === undefined) item.inputMode = "detail";
     if (item.weeklyQtyMin === undefined) item.weeklyQtyMin = "";
     if (item.weeklyQtyMax === undefined) item.weeklyQtyMax = "";
+    if (item.weightQtyMin === undefined) item.weightQtyMin = "";
+    if (item.weightQtyMax === undefined) item.weightQtyMax = "";
     if (item.useCustomPrice === undefined) item.useCustomPrice = false;
     if (item.customUnitPrice === undefined) item.customUnitPrice = "";
     // 以前保存された全角数字（例：「２」）をここで半角に補正し、既存データも自己修復させる。
@@ -749,6 +757,8 @@ function migrateSite(site) {
     item.daysPerWeek = normalizeHalfWidth(item.daysPerWeek);
     item.weeklyQtyMin = normalizeHalfWidth(item.weeklyQtyMin);
     item.weeklyQtyMax = normalizeHalfWidth(item.weeklyQtyMax);
+    item.weightQtyMin = normalizeHalfWidth(item.weightQtyMin);
+    item.weightQtyMax = normalizeHalfWidth(item.weightQtyMax);
     item.customUnitPrice = normalizeHalfWidth(item.customUnitPrice);
   });
   return site;
@@ -845,6 +855,18 @@ function computeItem(item) {
     return { monthlyMin: wLo * weeks, monthlyMax: wHi * weeks, monthlyAvg: avg * weeks };
   }
 
+  if (item.inputMode === "weight") {
+    // 袋の想定重量ではなく、実際に計量した重量(kg)をそのまま入力する方式（実績精算の案件向け）。
+    // ここで返す値の単位は「個数」ではなく「kg」になる（getUnitPrice側もkg単価をそのまま使う）。
+    const wMin = validateNumberField(item.weightQtyMin).value;
+    const wMax = hasNumericValue(item.weightQtyMax) ? validateNumberField(item.weightQtyMax).value : wMin;
+    const wLo = Math.min(wMin, wMax);
+    const wHi = Math.max(wMin, wMax);
+    const avg = (wMin + wMax) / 2;
+    const days = validateNumberField(item.daysPerWeek).value;
+    return { monthlyMin: wLo * days * weeks, monthlyMax: wHi * days * weeks, monthlyAvg: avg * days * weeks };
+  }
+
   const qtyMin = validateNumberField(item.qtyMin).value;
   // 最大値が未入力なら「範囲」ではなく最小値と同じ単一の数量として扱う
   const qtyMax = hasNumericValue(item.qtyMax) ? validateNumberField(item.qtyMax).value : qtyMin;
@@ -867,6 +889,8 @@ function itemLabelPlain(item) {
 
 function itemLabel(item) {
   const base = itemLabelPlain(item);
+  // 実重量(kg)入力モードでは袋サイズの概念を使わないため、「(45L)」等の表記は付けない。
+  if (item.inputMode === "weight") return base;
   return BAG_SIZE_TYPES.includes(item.type) ? `${base}(${item.bagSize}L)` : base;
 }
 
@@ -878,6 +902,10 @@ function getPriceDetail(item) {
   }
   const pricePerKg = PRICE_PER_KG[item.type];
   if (pricePerKg === undefined) return null;
+  if (item.inputMode === "weight") {
+    // 実際に計量した重量(kg)をそのまま数量として使うため、「1個あたりの想定重量」という概念がない。
+    return { pricePerKg, unitLabel: "kg", weightMode: true };
+  }
   if (item.type === "段ボール") {
     return { pricePerKg, weightPerUnit: CARDBOARD_WEIGHT_PER_SHEET, unitLabel: "枚" };
   }
@@ -892,13 +920,14 @@ function computeSite(site) {
   const breakdown = [];
   site.items.forEach(item => {
     const monthlyAvg = computeItem(item).monthlyAvg;
-    totalQty += monthlyAvg;
+    // 実際の重量(kg)を直接入力する品目は単位が「個数」ではないため、個数合計には含めない。
+    if (item.inputMode !== "weight") totalQty += monthlyAvg;
     const unitPrice = getUnitPrice(item);
     if (unitPrice !== undefined) {
       const cost = monthlyAvg * unitPrice;
       totalCost += cost;
       pricedCount++;
-      breakdown.push({ label: itemLabel(item), qty: monthlyAvg, unitPrice, cost });
+      breakdown.push({ label: itemLabel(item), qty: monthlyAvg, unitPrice, cost, unitLabel: item.inputMode === "weight" ? "kg" : "個" });
     } else {
       unpricedCount++;
     }
@@ -1179,9 +1208,12 @@ function renderItemRow(site, item) {
   const hasBagSize = BAG_SIZE_TYPES.includes(item.type);
   const showRange = Math.round(c.monthlyMin) !== Math.round(c.monthlyMax);
   const isWeekly = item.inputMode === "weekly";
+  const isWeight = item.inputMode === "weight";
+  const monthlyUnit = isWeight ? "kg" : "個";
 
   // 頻度が分からない新規店舗などは「1回あたり数量×頻度」の代わりに「週の合計量」をざっくり入力できる。
-  // 切り替えても入力済みの値は消さず保持するので、後から回数が分かれば詳しい入力に戻せる。
+  // 逆に実際に計量している案件は「実際の重量(kg)」を直接入力できる。
+  // 切り替えても入力済みの値は消さず保持するので、後から入力方式を変えても値は残る。
   const qtyFreqHtml = isWeekly ? `
     <td data-label="週の合計（目安）" colspan="2">
       <div class="qty-pair">
@@ -1191,6 +1223,19 @@ function renderItemRow(site, item) {
       <span class="note" style="margin:2px 0 0;">週合計・だいたいでOK</span>
       <span class="field-error"></span><br>
       <a class="note" data-role="toggle-mode">回数がわかれば詳しく入力に戻す</a>
+    </td>
+  ` : isWeight ? `
+    <td data-label="1回あたり重量(kg)">
+      <div class="qty-pair">
+        <input type="text" inputmode="decimal" data-role="weightQtyMin" value="${item.weightQtyMin}" placeholder="例：6"> 〜
+        <input type="text" inputmode="decimal" data-role="weightQtyMax" value="${item.weightQtyMax}" placeholder="－" title="数量が1つだけの場合は空欄でOK（最小値のみで計算します）">kg
+      </div>
+      <span class="field-error"></span>
+    </td>
+    <td data-label="頻度(週◯回)">
+      <input type="text" inputmode="numeric" data-role="daysPerWeek" value="${item.daysPerWeek}" style="width:70px;">
+      <span class="field-error"></span><br>
+      <a class="note" data-role="toggle-weight-mode">個数(袋)入力に戻す</a>
     </td>
   ` : `
     <td data-label="1回あたり数量">
@@ -1203,7 +1248,8 @@ function renderItemRow(site, item) {
     <td data-label="頻度(週◯回)">
       <input type="text" inputmode="numeric" data-role="daysPerWeek" value="${item.daysPerWeek}" style="width:70px;">
       <span class="field-error"></span><br>
-      <a class="note" data-role="toggle-mode">週の合計でざっくり入力</a>
+      <a class="note" data-role="toggle-mode">週の合計でざっくり入力</a><br>
+      <a class="note" data-role="toggle-weight-mode">実際の重量(kg)で入力</a>
     </td>
   `;
 
@@ -1215,7 +1261,7 @@ function renderItemRow(site, item) {
       ${isCustom ? `<input type="text" class="custom-type-input" data-role="customType" value="${escapeAttr(item.customType)}" placeholder="種別名">` : ""}
     </td>
     <td data-label="袋サイズ">
-      ${hasBagSize ? `
+      ${hasBagSize && !isWeight ? `
         <select data-role="bagSize">
           ${BAG_SIZES.map(s => `<option value="${s}" ${s === item.bagSize ? "selected" : ""}>${s}L</option>`).join("")}
         </select>
@@ -1223,8 +1269,8 @@ function renderItemRow(site, item) {
     </td>
     ${qtyFreqHtml}
     <td class="num-col" data-label="月間量（目安）">
-      <div class="monthly-qty-value">${fmt(c.monthlyAvg)}<span class="qty-unit">個/月</span></div>
-      ${showRange ? `<span class="note qty-range-note">目安 ${fmt(c.monthlyMin)}〜${fmt(c.monthlyMax)}個</span>` : ""}
+      <div class="monthly-qty-value">${fmt(c.monthlyAvg)}<span class="qty-unit">${monthlyUnit}/月</span></div>
+      ${showRange ? `<span class="note qty-range-note">目安 ${fmt(c.monthlyMin)}〜${fmt(c.monthlyMax)}${monthlyUnit}</span>` : ""}
       ${item.useCustomPrice ? `
         <div class="custom-price-field">
           <input type="text" inputmode="decimal" data-role="customUnitPrice" value="${escapeAttr(item.customUnitPrice)}" placeholder="例：350" style="width:80px;">円/${defaultBagUnitLabel(item)}
@@ -1257,11 +1303,23 @@ function renderItemRow(site, item) {
     bagSizeEl.addEventListener("change", (e) => { item.bagSize = Number(e.target.value); render(); });
   }
 
-  tr.querySelector('[data-role="toggle-mode"]').addEventListener("click", (e) => {
-    e.preventDefault();
-    item.inputMode = isWeekly ? "detail" : "weekly";
-    render();
-  });
+  const toggleModeEl = tr.querySelector('[data-role="toggle-mode"]');
+  if (toggleModeEl) {
+    toggleModeEl.addEventListener("click", (e) => {
+      e.preventDefault();
+      item.inputMode = isWeekly ? "detail" : "weekly";
+      render();
+    });
+  }
+
+  const toggleWeightModeEl = tr.querySelector('[data-role="toggle-weight-mode"]');
+  if (toggleWeightModeEl) {
+    toggleWeightModeEl.addEventListener("click", (e) => {
+      e.preventDefault();
+      item.inputMode = isWeight ? "detail" : "weight";
+      render();
+    });
+  }
 
   tr.querySelector('[data-role="toggle-custom-price"]').addEventListener("click", (e) => {
     e.preventDefault();
@@ -1282,6 +1340,16 @@ function renderItemRow(site, item) {
     markFieldValidity(wMaxEl, validateNumberField(item.weeklyQtyMax));
     wMinEl.addEventListener("input", (e) => { item.weeklyQtyMin = normalizeHalfWidth(e.target.value); render(); });
     wMaxEl.addEventListener("input", (e) => { item.weeklyQtyMax = normalizeHalfWidth(e.target.value); render(); });
+  } else if (isWeight) {
+    const wQtyMinEl = tr.querySelector('[data-role="weightQtyMin"]');
+    const wQtyMaxEl = tr.querySelector('[data-role="weightQtyMax"]');
+    const daysEl = tr.querySelector('[data-role="daysPerWeek"]');
+    markFieldValidity(wQtyMinEl, validateNumberField(item.weightQtyMin));
+    markFieldValidity(wQtyMaxEl, validateNumberField(item.weightQtyMax));
+    markFieldValidity(daysEl, validateNumberField(item.daysPerWeek));
+    wQtyMinEl.addEventListener("input", (e) => { item.weightQtyMin = normalizeHalfWidth(e.target.value); render(); });
+    wQtyMaxEl.addEventListener("input", (e) => { item.weightQtyMax = normalizeHalfWidth(e.target.value); render(); });
+    daysEl.addEventListener("input", (e) => { item.daysPerWeek = normalizeHalfWidth(e.target.value); render(); });
   } else {
     const qtyMinEl = tr.querySelector('[data-role="qtyMin"]');
     const qtyMaxEl = tr.querySelector('[data-role="qtyMax"]');
@@ -1318,6 +1386,10 @@ function generateTermsText(site) {
         const hasMax = hasNumericValue(item.weeklyQtyMax);
         const qtyText = hasMax && String(item.weeklyQtyMax) !== String(item.weeklyQtyMin) ? `${item.weeklyQtyMin}〜${item.weeklyQtyMax}` : `${item.weeklyQtyMin}`;
         lines.push(`・${label}：週あたり合計${qtyText}個想定（月間想定 ${fmt(c.monthlyAvg)}個）`);
+      } else if (item.inputMode === "weight") {
+        const hasMax = hasNumericValue(item.weightQtyMax);
+        const qtyText = hasMax && String(item.weightQtyMax) !== String(item.weightQtyMin) ? `${item.weightQtyMin}〜${item.weightQtyMax}` : `${item.weightQtyMin}`;
+        lines.push(`・${label}：1回あたり実測${qtyText}kg、週${item.daysPerWeek}回収集（月間想定 ${fmt(c.monthlyAvg)}kg）`);
       } else {
         const hasMax = hasNumericValue(item.qtyMax);
         const qtyText = hasMax && String(item.qtyMax) !== String(item.qtyMin) ? `${item.qtyMin}〜${item.qtyMax}` : `${item.qtyMin}`;
@@ -1356,6 +1428,8 @@ function generateBreakdownEmailText(site) {
     if (detail.custom) {
       const unitPrice = getUnitPrice(item);
       lines.push(`${itemLabelPlain(item)}：1${detail.unitLabel}${yen(unitPrice)}（袋単価契約）、月${monthlyQty}${detail.unitLabel}想定`);
+    } else if (detail.weightMode) {
+      lines.push(`${itemLabelPlain(item)}：1kg${detail.pricePerKg}円、月${monthlyQty}kg想定（実測重量ベース）`);
     } else {
       lines.push(`${itemLabelPlain(item)}：1kg${detail.pricePerKg}円、月${monthlyQty}${detail.unitLabel}想定(1${detail.unitLabel}${detail.weightPerUnit}kgの場合)`);
     }
@@ -1841,7 +1915,7 @@ function generateContractParagraphs(site) {
     pricedItems.forEach((item, i) => {
       const detail = getPriceDetail(item);
       const monthlyQty = Math.round(computeItem(item).monthlyAvg);
-      const sizePrefix = BAG_SIZE_TYPES.includes(item.type) ? `${item.bagSize}L${detail.unitLabel}` : detail.unitLabel;
+      const sizePrefix = (BAG_SIZE_TYPES.includes(item.type) && item.inputMode !== "weight") ? `${item.bagSize}L${detail.unitLabel}` : detail.unitLabel;
       const prefix = i === 0 ? "　　　　 　予定数量　 " : "　　　　　　　　　　　";
       paragraphs.push(P(`${prefix}・${itemLabelPlain(item)}　　   ： 　 ${sizePrefix} :約${monthlyQty}${detail.unitLabel}/月`));
     });
@@ -1854,7 +1928,7 @@ function generateContractParagraphs(site) {
     pricedItems.forEach((item, i) => {
       const detail = getPriceDetail(item);
       const unitPrice = getUnitPrice(item);
-      const sizePrefix = BAG_SIZE_TYPES.includes(item.type) ? `${item.bagSize}L${detail.unitLabel}` : detail.unitLabel;
+      const sizePrefix = (BAG_SIZE_TYPES.includes(item.type) && item.inputMode !== "weight") ? `${item.bagSize}L${detail.unitLabel}` : detail.unitLabel;
       const prefix = i === 0 ? "　　　　　 単　価　 　" : "　　　　　　　　　　　";
       paragraphs.push(P(`${prefix}・${itemLabelPlain(item)}　　   ：　　${sizePrefix}：${unitPrice}円/${detail.unitLabel}（税別）`));
     });
@@ -2017,7 +2091,7 @@ function renderQuoteScreen(site) {
   const summary = computeSite(site);
 
   const breakdownHtml = summary.breakdown.length
-    ? summary.breakdown.map(b => `<div>${escapeHtml(b.label)}　${fmt(b.qty)}個 × ${yen(b.unitPrice)}　＝　${yen(b.cost)}</div>`).join("")
+    ? summary.breakdown.map(b => `<div>${escapeHtml(b.label)}　${fmt(b.qty)}${b.unitLabel} × ${yen(b.unitPrice)}　＝　${yen(b.cost)}</div>`).join("")
     : `<div>単価が設定されている種別がありません</div>`;
 
   const minimumHtml = summary.minimumApplied
