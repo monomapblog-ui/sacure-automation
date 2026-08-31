@@ -412,18 +412,23 @@
 <script>
 const STORAGE_KEY = "haikibutsu-connect-calc-v1";
 
-const TYPE_PRESETS = ["可燃ごみ", "生ごみ", "不燃ごみ", "瓶", "缶", "ペットボトル", "段ボール", "その他"];
+const TYPE_PRESETS = ["可燃ごみ", "生ごみ", "不燃ごみ", "瓶", "缶", "ペットボトル", "段ボール", "発泡スチロール", "その他"];
 
 // 袋サイズ・重量・単価の前提（詳しくは「使い方・単価表」画面にも一覧を表示）。
-// 可燃ごみ：45L≈5kg・70L≈8kg、不燃ごみ：45L≈3kg・70L≈5kg、段ボール：1枚≈1kg。
+// 可燃ごみ：45L≈5kg・70L≈8kg、不燃ごみ：45L≈3kg・70L≈5kg、段ボール：1枚≈1kg、
+// 発泡スチロール：45L≈1kg・70L≈1.5kg（かさ高がある割に非常に軽いため、目安値）。
 // これらの重量に、可燃46円/kg（東京23区の事業系一般廃棄物処理手数料。令和5年10月改定の現行水準）・
-// 不燃100円/kg・段ボール35円/kgを掛けた金額が下記の単価。
+// 不燃100円/kg・段ボール35円/kg・発泡スチロール500円/kgを掛けた金額が下記の単価。
+// ※発泡スチロールが大量に出る案件の「立米(m³)単位での計算」は、比重（1立米あたり何kg）が
+//   確定していないため未対応。品目カードの「単価を直接指定する」で暫定的に1袋あたりの単価を
+//   直接入力することで代用できる。
 const BAG_SIZES = [45, 70];
-const BAG_SIZE_TYPES = ["可燃ごみ", "生ごみ", "不燃ごみ", "瓶", "缶", "ペットボトル"];
-const PRICE_PER_KG = { "可燃ごみ": 46, "不燃ごみ": 100, "段ボール": 35 };
+const BAG_SIZE_TYPES = ["可燃ごみ", "生ごみ", "不燃ごみ", "瓶", "缶", "ペットボトル", "発泡スチロール"];
+const PRICE_PER_KG = { "可燃ごみ": 46, "不燃ごみ": 100, "段ボール": 35, "発泡スチロール": 500 };
 const WEIGHT_TABLE = {
   "可燃ごみ": { 45: 5, 70: 8 },
-  "不燃ごみ": { 45: 3, 70: 5 }
+  "不燃ごみ": { 45: 3, 70: 5 },
+  "発泡スチロール": { 45: 1, 70: 1.5 }
 };
 const CARDBOARD_WEIGHT_PER_SHEET = 1; // kg/枚
 
@@ -431,6 +436,7 @@ const CARDBOARD_WEIGHT_PER_SHEET = 1; // kg/枚
 const PRICE_TABLE = {
   "可燃ごみ": { 45: WEIGHT_TABLE["可燃ごみ"][45] * PRICE_PER_KG["可燃ごみ"], 70: WEIGHT_TABLE["可燃ごみ"][70] * PRICE_PER_KG["可燃ごみ"] },
   "不燃ごみ": { 45: WEIGHT_TABLE["不燃ごみ"][45] * PRICE_PER_KG["不燃ごみ"], 70: WEIGHT_TABLE["不燃ごみ"][70] * PRICE_PER_KG["不燃ごみ"] },
+  "発泡スチロール": { 45: WEIGHT_TABLE["発泡スチロール"][45] * PRICE_PER_KG["発泡スチロール"], 70: WEIGHT_TABLE["発泡スチロール"][70] * PRICE_PER_KG["発泡スチロール"] },
   "段ボール": CARDBOARD_WEIGHT_PER_SHEET * PRICE_PER_KG["段ボール"]
 };
 
@@ -2173,7 +2179,7 @@ function renderGuideScreen() {
   const wrap = document.createElement("div");
 
   const priceRows = [];
-  ["可燃ごみ", "不燃ごみ"].forEach(type => {
+  ["可燃ごみ", "不燃ごみ", "発泡スチロール"].forEach(type => {
     BAG_SIZES.forEach(size => {
       const weight = WEIGHT_TABLE[type][size];
       priceRows.push({ type, size: `${size}L`, weight: `${weight}kg`, perKg: `${PRICE_PER_KG[type]}円/kg`, unitPrice: PRICE_TABLE[type][size] });
