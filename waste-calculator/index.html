@@ -1250,7 +1250,8 @@ function computeSite(site) {
       const cost = monthlyAvg * unitPrice;
       totalCost += cost;
       pricedCount++;
-      breakdown.push({ label: itemLabel(item), qty: monthlyAvg, unitPrice, cost, unitLabel: item.inputMode === "weight" ? "kg" : "個" });
+      const detail = getPriceDetail(item);
+      breakdown.push({ label: itemLabel(item), qty: monthlyAvg, unitPrice, cost, unitLabel: detail ? detail.unitLabel : "個" });
     } else {
       unpricedCount++;
     }
