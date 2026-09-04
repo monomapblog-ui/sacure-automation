@@ -404,6 +404,99 @@
   .guide-price-table th, .guide-price-table td { padding: 10px 12px; }
   .guide-price-table thead th { background: var(--bg-accent); border-bottom: none; }
   .guide-price-table tbody tr:nth-child(odd) { background: var(--bg-accent); }
+
+  /* ==============================================================
+     RPGレイヤー（レベル・EXP・装備）— SANPAI QUEST デザインハンドオフ 第1弾
+     ============================================================== */
+  :root {
+    --rpg-navy: #16204a; --rpg-navy-deep: #080d1d; --rpg-navy-mid: #1e2a55;
+    --rpg-gold: #e8c66a; --rpg-gold-dim: #9a7c33; --rpg-ink: #f4eddb;
+  }
+  .rpg-font, .rpg-status, .rpg-toast { font-family: "DotGothic16", "MS Gothic", "ＭＳ ゴシック", monospace; }
+  .rpg-status {
+    display: flex; align-items: center; gap: 18px; margin: 0 0 20px; padding: 14px 18px;
+    color: var(--rpg-ink); border-radius: 8px;
+    background: linear-gradient(180deg, var(--rpg-navy-mid), var(--rpg-navy-deep));
+    border: 2px solid var(--rpg-gold-dim);
+    box-shadow: inset 0 0 0 2px rgba(232, 198, 106, 0.18), 0 8px 24px rgba(6, 10, 24, 0.28);
+  }
+  .rpg-gear-slot {
+    flex-shrink: 0; display: grid; place-items: center; width: 84px; height: 84px;
+    background: radial-gradient(circle at 50% 35%, #26325f, #0a1024);
+    border: 2px solid var(--rpg-gold-dim); border-radius: 6px;
+  }
+  .rpg-gear-slot[data-aura="1"] { animation: rpg-aura 2.2s ease-in-out infinite; }
+  @keyframes rpg-aura {
+    0%, 100% { box-shadow: inset 0 0 10px rgba(0,0,0,.5), 0 0 6px var(--rpg-aura); }
+    50% { box-shadow: inset 0 0 10px rgba(0,0,0,.5), 0 0 20px var(--rpg-aura); }
+  }
+  .rpg-status-main { flex: 1; min-width: 0; }
+  .rpg-status-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .rpg-lv-label { font-size: 0.9rem; color: var(--rpg-gold); letter-spacing: 0.06em; }
+  .rpg-lv {
+    font-size: 2rem; line-height: 1; color: var(--rpg-gold); font-weight: 700;
+    text-shadow: 0 0 12px rgba(232, 198, 106, 0.45);
+  }
+  .rpg-title {
+    font-size: 0.95rem; color: var(--rpg-ink); padding: 3px 10px; border-radius: 4px;
+    background: rgba(232, 198, 106, 0.12); border: 1px solid rgba(232, 198, 106, 0.4); white-space: nowrap;
+  }
+  .rpg-exp-track {
+    height: 12px; margin: 10px 0 6px; border-radius: 2px; overflow: hidden;
+    background: #050a18; border: 1px solid var(--rpg-gold-dim);
+  }
+  .rpg-exp-fill {
+    height: 100%; width: 0; border-radius: 1px;
+    background: linear-gradient(90deg, #8ad4ff, #ffe97a);
+    transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .rpg-status-meta { font-size: 0.8rem; color: #b7c2e0; letter-spacing: 0.02em; }
+  .rpg-mini-btn {
+    font-family: "DotGothic16", "MS Gothic", monospace; font-size: 0.8rem; padding: 6px 12px;
+    border-radius: 4px; cursor: pointer; color: #ffe9a8; background: rgba(232, 198, 106, 0.1);
+    border: 1px solid rgba(232, 198, 106, 0.5); white-space: nowrap;
+  }
+  .rpg-mini-btn:hover { background: rgba(232, 198, 106, 0.22); color: #fff6d6; border-color: var(--rpg-gold); }
+  .rpg-save-panel {
+    font-family: "DotGothic16", "MS Gothic", monospace; color: var(--rpg-ink);
+    margin: -14px 0 20px; padding: 14px 16px;
+    background: linear-gradient(180deg, rgba(30, 42, 85, 0.96), rgba(8, 13, 29, 0.96));
+    border: 2px solid var(--rpg-gold-dim); border-top: none;
+    border-radius: 0 0 8px 8px;
+  }
+  .rpg-save-panel p { font-size: 0.8rem; color: #b7c2e0; margin: 0 0 8px; line-height: 1.7; }
+  .rpg-save-panel textarea {
+    width: 100%; min-height: 62px; font-family: ui-monospace, monospace; font-size: 0.78rem;
+    padding: 8px 10px; border-radius: 6px; resize: vertical;
+    background: #050a18; color: #d8e2f5; border: 1px solid var(--rpg-gold-dim);
+  }
+  .rpg-save-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+  .rpg-save-msg { font-size: 0.8rem; color: #ffe97a; }
+  .rpg-status-compact { gap: 14px; padding: 10px 14px; margin-bottom: 16px; }
+  .rpg-status-compact .rpg-gear-slot { width: 60px; height: 60px; }
+  .rpg-status-compact .rpg-lv { font-size: 1.5rem; }
+  .rpg-toast {
+    position: fixed; left: 50%; bottom: 26px; z-index: 9999;
+    transform: translateX(-50%) translateY(14px); opacity: 0;
+    background: rgba(10,16,34,0.96); color: #ffe97a; border: 1px solid rgba(232,198,106,0.5);
+    border-radius: 10px; padding: 12px 22px; text-align: center;
+    letter-spacing: 0.06em;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    pointer-events: none;
+  }
+  .rpg-toast.in { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .rpg-toast small { display: block; margin-top: 3px; color: #d3dcee; font-size: 0.76rem; letter-spacing: 0.02em; }
+  @media (max-width: 640px) {
+    .rpg-status { gap: 12px; padding: 12px 14px; }
+    .rpg-gear-slot { width: 64px; height: 64px; }
+    .rpg-lv { font-size: 1.6rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .rpg-gear-slot[data-aura="1"] { animation: none; }
+    .rpg-exp-fill { transition: none; }
+    .rpg-toast { transition: none; }
+  }
 </style>
 </head>
 <body>
@@ -698,6 +791,231 @@ ENTRANCE_ANIMS.forEach(anim => {
 
 function pickEntrancePattern() {
   return ENTRANCE_PATTERNS[Math.floor(Math.random() * ENTRANCE_PATTERNS.length)];
+}
+
+// ==================================================================
+// RPGレイヤー（レベル・EXP・装備）— SANPAI QUESTデザインハンドオフの第1弾。
+// 見積を1回出すごとにEXP+100、レベルが上がると装備（剣）と称号が進化する。
+// 進行状況は既存の案件データ（STORAGE_KEY）とは別のキーでlocalStorageに保存するため、
+// 「全データをクリア」を押しても消えない。
+// 戦闘演出・デイリーミッション・失注記録などは後続フェーズで追加予定。
+// ==================================================================
+const RPG_KEY = "haikibutsu-rpg-v1";
+const EXP_PER_QUOTE = 100;
+
+// 次のレベルまでに必要なEXP。見積3回（＋100×3）で必ず1レベル上がる、分かりやすい固定値。
+function rpgExpNeeded() { return 300; }
+
+const RPG_TITLES = [
+  { minLevel: 1, name: "見習い見積人" },
+  { minLevel: 5, name: "廃棄物の探索者" },
+  { minLevel: 10, name: "定期回収の戦士" },
+  { minLevel: 20, name: "分別の騎士" },
+  { minLevel: 30, name: "見積の勇者" },
+  { minLevel: 50, name: "廃棄物王" }
+];
+
+// 装備（剣）はドット絵。パレットの差し替え＋オーラ・宝石の有無で進化を表現する。
+const RPG_GEARS = [
+  { minLevel: 1, name: "木の剣", palette: { t: "#d8ac6b", b: "#8a5a2b", g: "#6b4a22", h: "#4e3417", p: "#9a6a33" } },
+  { minLevel: 5, name: "銅の剣", palette: { t: "#f2c48f", b: "#b5713a", g: "#8a5a24", h: "#4e3417", p: "#c98a45" } },
+  { minLevel: 10, name: "鋼鉄の剣", palette: { t: "#ffffff", b: "#9fb2c9", g: "#c9a24a", h: "#3d3a4a", p: "#8e8ea6" } },
+  { minLevel: 20, name: "炎の剣", palette: { t: "#ffe9a0", b: "#ff7a3c", g: "#c9a24a", h: "#4a2a18", p: "#ffb347" }, aura: "#ff7a3c" },
+  { minLevel: 30, name: "聖剣", palette: { t: "#fffdf0", b: "#ffe08a", g: "#e8c66a", h: "#5a3f7a", p: "#ffe97a" }, aura: "#ffe97a", gem: "#7ad7ff" },
+  { minLevel: 50, name: "覇王の剣", palette: { t: "#ffffff", b: "#cfa8ff", g: "#ffe97a", h: "#2a1a4a", p: "#ff8ad4" }, aura: "#c08aff", gem: "#ff4d6d" }
+];
+
+// 11×15のドット絵（t=刃先, b=刃, g=鍔, h=柄, p=柄頭）
+const RPG_SWORD_PIXELS = [
+  ".....t.....",
+  "....tbt....",
+  "....tbt....",
+  "....tbt....",
+  "....tbt....",
+  "....tbt....",
+  "....tbt....",
+  "....tbt....",
+  "...ttbtt...",
+  "..ggggggg..",
+  ".....h.....",
+  ".....h.....",
+  ".....h.....",
+  "....ppp....",
+  ".....p....."
+];
+
+function rpgGearSvg(gear, px) {
+  px = px || 5;
+  const rows = RPG_SWORD_PIXELS;
+  const w = rows[0].length * px;
+  const h = rows.length * px;
+  const rects = [];
+  rows.forEach((row, y) => {
+    row.split("").forEach((ch, x) => {
+      if (ch === ".") return;
+      let color = gear.palette[ch] || "#ffffff";
+      if (gear.gem && ch === "g" && x === 5) color = gear.gem; // 鍔の中央に宝石
+      rects.push(`<rect x="${x * px}" y="${y * px}" width="${px}" height="${px}" fill="${color}"/>`);
+    });
+  });
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges" aria-hidden="true">${rects.join("")}</svg>`;
+}
+
+function rpgPickTier(list, level) {
+  let found = list[0];
+  list.forEach(entry => { if (level >= entry.minLevel) found = entry; });
+  return found;
+}
+function rpgGear(level) { return rpgPickTier(RPG_GEARS, level); }
+function rpgTitle(level) { return rpgPickTier(RPG_TITLES, level).name; }
+
+function rpgLoad() {
+  try {
+    const raw = localStorage.getItem(RPG_KEY);
+    if (raw) {
+      const p = JSON.parse(raw);
+      return {
+        level: Number(p.level) || 1,
+        exp: Number(p.exp) || 0,
+        quotes: Number(p.quotes) || 0,
+        damage: Number(p.damage) || 0
+      };
+    }
+  } catch (e) { /* ignore */ }
+  return { level: 1, exp: 0, quotes: 0, damage: 0 };
+}
+let rpg = rpgLoad();
+function rpgSave() {
+  try { localStorage.setItem(RPG_KEY, JSON.stringify(rpg)); } catch (e) { /* ignore */ }
+}
+
+// EXPを加算し、レベルアップ・装備進化・称号更新の有無を返す。討伐数(quotes)・累計ダメージ(damage)も加算する。
+function rpgGainExp(amount, damage) {
+  const before = { level: rpg.level, gear: rpgGear(rpg.level), title: rpgTitle(rpg.level) };
+  rpg.exp += amount;
+  rpg.quotes += 1;
+  rpg.damage += damage || 0;
+  let leveled = false;
+  while (rpg.exp >= rpgExpNeeded()) {
+    rpg.exp -= rpgExpNeeded();
+    rpg.level += 1;
+    leveled = true;
+  }
+  rpgSave();
+  const after = { level: rpg.level, gear: rpgGear(rpg.level), title: rpgTitle(rpg.level) };
+  return {
+    leveled,
+    before,
+    after,
+    gearChanged: before.gear.name !== after.gear.name,
+    titleChanged: before.title !== after.title
+  };
+}
+
+function rpgToast(main, sub, ms) {
+  const el = document.createElement("div");
+  el.className = "rpg-toast";
+  el.innerHTML = `<div>${escapeHtml(main)}</div>${sub ? `<small>${escapeHtml(sub)}</small>` : ""}`;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add("in"));
+  setTimeout(() => {
+    el.classList.remove("in");
+    setTimeout(() => el.remove(), 250);
+  }, ms || 1800);
+}
+
+function buildRpgStatusBar(compact) {
+  const gear = rpgGear(rpg.level);
+  const need = rpgExpNeeded();
+  const pct = Math.max(0, Math.min(100, (rpg.exp / need) * 100));
+  const el = document.createElement("div");
+  el.className = "rpg-status" + (compact ? " rpg-status-compact" : "");
+  el.innerHTML = `
+    <div class="rpg-gear-slot" data-aura="${gear.aura ? "1" : "0"}" style="--rpg-aura:${gear.aura || "transparent"}">${rpgGearSvg(gear, compact ? 4 : 5)}</div>
+    <div class="rpg-status-main">
+      <div class="rpg-status-row">
+        <span class="rpg-lv-label">Lv.</span><span class="rpg-lv">${rpg.level}</span>
+        <span class="rpg-title">${escapeHtml(rpgTitle(rpg.level))}</span>
+      </div>
+      <div class="rpg-exp-track"><div class="rpg-exp-fill" style="width:${pct}%"></div></div>
+      <div class="rpg-status-meta">EXP ${fmt(rpg.exp)} / ${fmt(need)}　│　装備：${escapeHtml(gear.name)}　│　討伐数 ${fmt(rpg.quotes)}体</div>
+    </div>
+    ${compact ? "" : `<button class="rpg-mini-btn" data-role="rpgSaveToggle">こうでんのしを いいちする</button>`}
+  `;
+  if (!compact) {
+    el.querySelector('[data-role="rpgSaveToggle"]').addEventListener("click", () => {
+      rpgSavePanelOpen = !rpgSavePanelOpen;
+      render();
+    });
+  }
+  return el;
+}
+
+// 進行状況はlocalStorage（このブラウザ内）に自動保存されるため、同じPC・同じブラウザなら
+// 何もしなくても維持される。ただしPCを引っ越したり別のブラウザで開くとLv.1に戻ってしまうので、
+// レベル・EXP・装備を短い「こうでんのし」文字列として書き出し・読み込みできるようにしている。
+let rpgSavePanelOpen = false;
+
+function rpgEncodeSave() {
+  const payload = JSON.stringify({ v: 1, lv: rpg.level, ex: rpg.exp, q: rpg.quotes, d: rpg.damage });
+  return btoa(unescape(encodeURIComponent(payload)));
+}
+
+function rpgDecodeSave(code) {
+  const parsed = JSON.parse(decodeURIComponent(escape(atob((code || "").trim()))));
+  const level = Number(parsed.lv);
+  if (!Number.isFinite(level) || level < 1) throw new Error("invalid");
+  return {
+    level: Math.floor(level),
+    exp: Math.max(0, Number(parsed.ex) || 0),
+    quotes: Math.max(0, Number(parsed.q) || 0),
+    damage: Math.max(0, Number(parsed.d) || 0)
+  };
+}
+
+function buildRpgSavePanel() {
+  const el = document.createElement("div");
+  el.className = "rpg-save-panel";
+  el.innerHTML = `
+    <p>進行状況はこのブラウザに自動保存されています（同じPC・同じブラウザならそのまま続きます）。<br>
+    PCを変える・別のブラウザで使うときは、下の「こうでんのし」をコピーして保管し、移行先で貼り付けて「よみこむ」を押してください。</p>
+    <textarea data-role="rpgSaveCode" spellcheck="false">${escapeHtml(rpgEncodeSave())}</textarea>
+    <div class="rpg-save-actions">
+      <button class="rpg-mini-btn" data-role="rpgCopy">コピーする</button>
+      <button class="rpg-mini-btn" data-role="rpgLoad">よみこむ</button>
+      <button class="rpg-mini-btn" data-role="rpgClose">とじる</button>
+      <span class="rpg-save-msg" data-role="rpgSaveMsg"></span>
+    </div>
+  `;
+  const codeEl = el.querySelector('[data-role="rpgSaveCode"]');
+  const msgEl = el.querySelector('[data-role="rpgSaveMsg"]');
+  const flash = text => {
+    msgEl.textContent = text;
+    setTimeout(() => { msgEl.textContent = ""; }, 3000);
+  };
+  el.querySelector('[data-role="rpgCopy"]').addEventListener("click", async () => {
+    const ok = await copyTextToClipboard(codeEl.value);
+    flash(ok ? "コピーしました！" : "コピーできません。手動で選択してください。");
+  });
+  el.querySelector('[data-role="rpgLoad"]').addEventListener("click", () => {
+    let loaded;
+    try {
+      loaded = rpgDecodeSave(codeEl.value);
+    } catch (e) {
+      flash("このこうでんのしは読み取れません。");
+      return;
+    }
+    if (!confirm(`Lv.${loaded.level}（装備：${rpgGear(loaded.level).name}）の記録を読み込みます。現在のLv.${rpg.level}の記録は上書きされます。よろしいですか？`)) return;
+    rpg = loaded;
+    rpgSave();
+    rpgSavePanelOpen = false;
+    render();
+  });
+  el.querySelector('[data-role="rpgClose"]').addEventListener("click", () => {
+    rpgSavePanelOpen = false;
+    render();
+  });
+  return el;
 }
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
@@ -1017,6 +1335,7 @@ function renderListScreen() {
   wrap.innerHTML = `
     <h1>定期回収計算ツール</h1>
     <p class="subtitle">企業名を入れて、ゴミの種類と袋数・回数を入れるだけ。金額は自動で計算します。</p>
+    <div id="rpgStatusContainer"></div>
     <div class="toolbar">
       <button class="btn-primary" id="addSiteBtn">＋ 案件を追加</button>
       <button id="guideBtn">使い方・単価表</button>
@@ -1037,6 +1356,10 @@ function renderListScreen() {
   `;
   frag.appendChild(wrap);
 
+  const rpgStatusContainer = wrap.querySelector("#rpgStatusContainer");
+  rpgStatusContainer.appendChild(buildRpgStatusBar(false));
+  if (rpgSavePanelOpen) rpgStatusContainer.appendChild(buildRpgSavePanel());
+
   const sitesContainer = wrap.querySelector("#sitesContainer");
   state.sites.forEach(site => sitesContainer.appendChild(renderSiteCard(site)));
 
@@ -1055,7 +1378,7 @@ function renderListScreen() {
     render();
   });
   wrap.querySelector("#resetBtn").addEventListener("click", () => {
-    if (!confirm("全ての案件データを削除して初期状態に戻します。よろしいですか？")) return;
+    if (!confirm("全ての案件データを削除して初期状態に戻します（Lv./EXP/装備は消えません）。よろしいですか？")) return;
     state = { view: "list", activeSiteId: null, weeksPerMonth: 4.35, sites: [defaultSite("")] };
     render();
   });
@@ -1159,6 +1482,13 @@ function renderSiteCard(site) {
   actions.innerHTML = `<button class="btn-quote" data-role="show-quote" ${nameValidation.invalid ? `disabled title="企業名を入力してください"` : ""}>見積を出す</button>`;
   actions.querySelector('[data-role="show-quote"]').addEventListener("click", () => {
     site.includeSetupFee = true; // 金額提示画面を開くたびに、初回手数料チェックは常にONへ戻す
+    const summary = computeSite(site);
+    const result = rpgGainExp(EXP_PER_QUOTE, summary.quoteTotal);
+    if (result.leveled) {
+      rpgToast(`⬆️ LEVEL UP！ Lv.${result.after.level}`, result.gearChanged ? `装備が「${result.after.gear.name}」に進化した！` : result.after.title, 2600);
+    } else {
+      rpgToast("けいけんちを かくとく！", `EXP +${EXP_PER_QUOTE}`);
+    }
     state.view = "quote";
     state.activeSiteId = site.id;
     render();
@@ -2123,6 +2453,7 @@ function renderQuoteScreen(site) {
 
   wrap.innerHTML = `
     <button class="back-btn" data-role="back">← 入力画面に戻る</button>
+    <div id="rpgStatusContainerCompact"></div>
     <div class="quote-screen">
       <div class="quote-site-name">${escapeHtml(site.name)}</div>
       <div class="quote-headline">この金額でお客様にご提示ください</div>
@@ -2178,6 +2509,8 @@ function renderQuoteScreen(site) {
       </div>
     </div>
   `;
+
+  wrap.querySelector("#rpgStatusContainerCompact").appendChild(buildRpgStatusBar(true));
 
   wrap.querySelector('[data-role="back"]').addEventListener("click", () => {
     state.view = "list";
