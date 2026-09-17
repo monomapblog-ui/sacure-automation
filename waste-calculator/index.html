@@ -509,8 +509,8 @@ const STORAGE_KEY = "haikibutsu-connect-calc-v1";
 // 生ごみ・瓶・缶・ペットボトル・その他は選択肢からは消えるが、内部のロジック自体は残しているので、
 // 必要になれば下記配列に戻すだけで再表示できる（過去に保存されたデータがこれらの種別のままでも
 // 計算自体は引き続き行われる。ただし選択肢に無いため入力画面上は選択し直せない）。
-const TYPE_PRESETS = ["可燃ごみ", "不燃ごみ", "段ボール", "発泡スチロール"];
-const TYPE_PRESETS_ALL = ["可燃ごみ", "生ごみ", "不燃ごみ", "瓶", "缶", "ペットボトル", "段ボール", "発泡スチロール", "その他"];
+const TYPE_PRESETS = ["可燃ごみ", "不燃ごみ", "段ボール", "発泡スチロール", "古紙"];
+const TYPE_PRESETS_ALL = ["可燃ごみ", "生ごみ", "不燃ごみ", "瓶", "缶", "ペットボトル", "段ボール", "発泡スチロール", "古紙", "その他"];
 
 // 袋サイズ・重量・単価の前提（詳しくは「使い方・単価表」画面にも一覧を表示）。
 // 可燃ごみ：45L≈5kg・70L≈8kg、不燃ごみ：45L≈3kg・70L≈5kg、段ボール：1枚≈1kg、
@@ -520,9 +520,16 @@ const TYPE_PRESETS_ALL = ["可燃ごみ", "生ごみ", "不燃ごみ", "瓶", "�
 // ※発泡スチロールが大量に出る案件の「立米(m³)単位での計算」は、比重（1立米あたり何kg）が
 //   確定していないため未対応。品目カードの「単価を直接指定する」で暫定的に1袋あたりの単価を
 //   直接入力することで代用できる。
+//
+// 古紙（資源ごみとして回収する紙・段ボール）：1kg15円。同じ「段ボール」でも、通常の廃棄物処理
+// （1kg35円）で出すか、古紙・再生資源として回収する（1kg15円）かで単価が大きく異なるため、
+// 「段ボール」とは別の種別として選べるようにしている（案件ごとに正しい方を選ぶだけで、
+// 単価を打ち間違えて安く出してしまうミスを防げる）。古紙は排出時の重量（シュレッダーにかけたか
+// 否かなどで大きく変わる）が読みにくいため、袋サイズによる想定重量は設けず、
+// 「実際の重量(kg)で入力」モードでの計算を前提にしている。
 const BAG_SIZES = [45, 70];
 const BAG_SIZE_TYPES = ["可燃ごみ", "生ごみ", "不燃ごみ", "瓶", "缶", "ペットボトル", "発泡スチロール"];
-const PRICE_PER_KG = { "可燃ごみ": 46, "不燃ごみ": 100, "段ボール": 35, "発泡スチロール": 500 };
+const PRICE_PER_KG = { "可燃ごみ": 46, "不燃ごみ": 100, "段ボール": 35, "発泡スチロール": 500, "古紙": 15 };
 const WEIGHT_TABLE = {
   "可燃ごみ": { 45: 5, 70: 8 },
   "不燃ごみ": { 45: 3, 70: 5 },
@@ -1598,6 +1605,7 @@ function renderItemRow(site, item) {
         ${typeOptions.map(t => `<option value="${t}" ${t === item.type ? "selected" : ""}>${t}</option>`).join("")}
       </select>
       ${isCustom ? `<input type="text" class="custom-type-input" data-role="customType" value="${escapeAttr(item.customType)}" placeholder="種別名">` : ""}
+      ${item.type === "古紙" && !isWeight ? `<span class="note" style="color:var(--danger);">↓「実際の重量(kg)で入力」に切り替えてください</span>` : ""}
     </td>
     <td data-label="袋サイズ">
       ${isWeight ? "" : hasBagSize ? `
@@ -2602,6 +2610,7 @@ function renderGuideScreen() {
     });
   });
   priceRows.push({ type: "段ボール", size: "(1枚)", weight: `${CARDBOARD_WEIGHT_PER_SHEET}kg`, perKg: `${PRICE_PER_KG["段ボール"]}円/kg`, unitPrice: PRICE_TABLE["段ボール"] });
+  priceRows.push({ type: "古紙", size: "（重量入力のみ）", weight: "－", perKg: `${PRICE_PER_KG["古紙"]}円/kg`, unitPrice: "－" });
 
   const priceTableHtml = priceRows.map(r => `
     <tr>
@@ -2609,7 +2618,7 @@ function renderGuideScreen() {
       <td data-label="袋サイズ">${escapeHtml(r.size)}</td>
       <td class="num-col" data-label="想定重量">${escapeHtml(r.weight)}</td>
       <td class="num-col" data-label="単価(円/kg)">${escapeHtml(r.perKg)}</td>
-      <td class="num-col" data-label="1個あたり単価">${yen(r.unitPrice)}</td>
+      <td class="num-col" data-label="1個あたり単価">${typeof r.unitPrice === "number" ? yen(r.unitPrice) : escapeHtml(r.unitPrice)}</td>
     </tr>
   `).join("");
 
@@ -2624,6 +2633,12 @@ function renderGuideScreen() {
         <li>新規店舗などで週何回にすべきか分からない場合は、「週の合計でざっくり入力」に切り替えると、
           1回あたり数量・頻度の代わりに「週合計だいたい◯袋」だけで概算できます（後から回数が分かれば
           「詳しく入力に戻す」でいつでも戻せます）。</li>
+        <li>実際に計量した重量(kg)がある場合は、「実際の重量(kg)で入力」に切り替えると、袋の想定重量を
+          経由せず入力したkgに単価(円/kg)を直接掛けて計算します。<b>「古紙」は排出時の重量が
+          読みにくいため、必ずこの「実際の重量(kg)で入力」に切り替えてから使ってください。</b></li>
+        <li><b>段ボールを廃棄物として処理する場合は「段ボール」（1kg35円）、古紙・再生資源として
+          回収する場合は「古紙」（1kg15円）を選びます。</b>単価が大きく異なるため、案件ごとに
+          正しい方を選んでください。</li>
         <li>必要に応じて「最低基本料金」「作業条件・特記事項」を編集します。</li>
         <li>「見積を出す」ボタンを押すと、お客様にご案内する金額と見積前提条件の文面が表示されます。</li>
       </ol>
