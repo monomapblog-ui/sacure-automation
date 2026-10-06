@@ -135,6 +135,12 @@
     font-size: 0.95rem; font-weight: 600; line-height: 1; flex-shrink: 0;
   }
   .btn-delete-site:hover { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
+  .btn-duplicate-site {
+    height: 32px; padding: 0 12px; border-radius: 16px;
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+    font-size: 0.8rem; font-weight: 600; flex-shrink: 0; white-space: nowrap;
+  }
+  .btn-duplicate-site:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
   button[disabled] { opacity: 0.5; cursor: not-allowed; }
   button[disabled]:hover { background: var(--panel); border-color: var(--border); color: var(--text); }
   table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
@@ -425,11 +431,8 @@
     background: radial-gradient(circle at 50% 35%, #26325f, #0a1024);
     border: 2px solid var(--rpg-gold-dim); border-radius: 6px;
   }
-  .rpg-gear-slot[data-aura="1"] { animation: rpg-aura 2.2s ease-in-out infinite; }
-  @keyframes rpg-aura {
-    0%, 100% { box-shadow: inset 0 0 10px rgba(0,0,0,.5), 0 0 6px var(--rpg-aura); }
-    50% { box-shadow: inset 0 0 10px rgba(0,0,0,.5), 0 0 20px var(--rpg-aura); }
-  }
+  /* 担当者から「演出が過剰」との指摘を受け、常時明滅するアニメーションはやめて静的な光りに変更 */
+  .rpg-gear-slot[data-aura="1"] { box-shadow: inset 0 0 10px rgba(0,0,0,.5), 0 0 10px var(--rpg-aura); }
   .rpg-status-main { flex: 1; min-width: 0; }
   .rpg-status-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
   .rpg-lv-label { font-size: 0.9rem; color: var(--rpg-gold); letter-spacing: 0.06em; }
@@ -1407,6 +1410,7 @@ function renderSiteCard(site) {
       <input type="text" value="${escapeAttr(site.name)}" data-role="site-name" placeholder="例：株式会社サキュレ">
       <span class="field-error"></span>
     </label>
+    <button class="btn-duplicate-site" data-role="duplicate-site" title="この案件を複製（品目・数量・頻度などをそのままコピー）">⧉ 複製</button>
     <button class="btn-delete-site" data-role="delete-site" title="この案件を削除">×</button>
   `;
   card.appendChild(head);
@@ -1492,10 +1496,10 @@ function renderSiteCard(site) {
     site.includeSetupFee = true; // 金額提示画面を開くたびに、初回手数料チェックは常にONへ戻す
     const summary = computeSite(site);
     const result = rpgGainExp(EXP_PER_QUOTE, summary.quoteTotal);
+    // 見積のたびに毎回トーストが出ると業務の邪魔になるとの指摘を受け、
+    // レベルアップ（頻度が低い節目のタイミング）のときだけ通知するようにした。
     if (result.leveled) {
-      rpgToast(`⬆️ LEVEL UP！ Lv.${result.after.level}`, result.gearChanged ? `装備が「${result.after.gear.name}」に進化した！` : result.after.title, 2600);
-    } else {
-      rpgToast("けいけんちを かくとく！", `EXP +${EXP_PER_QUOTE}`);
+      rpgToast(`⬆️ LEVEL UP！ Lv.${result.after.level}`, result.gearChanged ? `装備が「${result.after.gear.name}」に進化した！` : result.after.title, 2200);
     }
     state.view = "quote";
     state.activeSiteId = site.id;
@@ -1515,6 +1519,17 @@ function renderSiteCard(site) {
   // setTimeoutで1テック遅らせることで、「フォーカスが外れた直後に別のボタンをクリックする」
   // 操作でblurのrender()がそのクリックの処理と競合し、クリックが効かなくなるのを防ぐ。
   siteNameEl.addEventListener("blur", () => { setTimeout(render, 0); });
+  head.querySelector('[data-role="duplicate-site"]').addEventListener("click", () => {
+    // 同じ品目構成の案件を何度も作る担当者向けに、丸ごとコピーして新しい案件として追加する。
+    // id（案件・品目ともに）だけ新しく振り直し、それ以外の入力内容はすべてそのまま引き継ぐ。
+    const copy = JSON.parse(JSON.stringify(site));
+    copy.id = uid();
+    copy.name = site.name ? `${site.name}（コピー）` : "";
+    copy.items = copy.items.map(item => ({ ...item, id: uid() }));
+    const idx = state.sites.findIndex(s => s.id === site.id);
+    state.sites.splice(idx + 1, 0, copy);
+    render();
+  });
   head.querySelector('[data-role="delete-site"]').addEventListener("click", () => {
     if (!confirm(`「${site.name || "(企業名未入力)"}」を削除しますか？`)) return;
     state.sites = state.sites.filter(s => s.id !== site.id);
