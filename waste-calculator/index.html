@@ -584,6 +584,15 @@ function computeTax(amountExcludingTax) {
   return { tax, totalWithTax: amountExcludingTax + tax };
 }
 
+// 見積書（Excel／PDF）共通：日付を和暦（実際の見積書テンプレートのセル書式 ggge"年"m"月"d"日"(aaa) と同じ表記）に変換する。
+function formatEraDate(date) {
+  const y = date.getFullYear(), m = date.getMonth() + 1, d = date.getDate();
+  const reiwaYear = y - 2018; // 令和元年＝2019年
+  const eraYearText = reiwaYear === 1 ? "元" : String(reiwaYear);
+  const weekdayKanji = ["日", "月", "火", "水", "木", "金", "土"][date.getDay()];
+  return `令和${eraYearText}年${m}月${d}日(${weekdayKanji})`;
+}
+
 // 一部のキャラだけ、絵文字の代わりに自作SVGイラスト（べた塗り絵文字よりイラスト風の見た目）を表示する。
 // 外部画像は使わず、単一HTMLファイル内で完結させるためインラインSVGで手描きしている。
 const SLIME_SVG = `<svg width="1em" height="1em" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -1815,84 +1824,74 @@ function generateBreakdownEmailText(site) {
 // PDFのバイナリを自前で組み立てるのではなく、印刷専用のレイアウトを画面外に用意してwindow.print()を呼ぶだけにしている。
 // レイアウト・項目構成は御社の実際の見積書雛形（件名／作業場所／決算条件／有効期限、
 // 摘要・数量・単位・単価・金額・備考の内訳表、小計／消費税／合計）にできるだけ忠実に合わせている。
+// 実際の見積書Excelテンプレート（テンプレシート）のセル配置・文言・改行をそのままHTMLに写したもの。
+// Excel版（buildQuoteXlsxSheetXml）と同じbuildQuoteLineItems／buildQuoteRemarksLinesを使うことで、
+// 「タブで開く」版とExcelダウンロード版の内容・文言が必ず完全に一致するようにしている。
 function generatePrintQuoteHtml(site, summary) {
   const today = new Date();
-  const todayText = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日`;
   const { tax, totalWithTax } = computeTax(summary.quoteTotal);
-
-  // Excel版（buildQuoteXlsxSheetXml）と完全に同じ内訳行を使うことで、
-  // 「タブで開く」版とExcelダウンロード版の内容が必ず一致するようにしている。
   const items = buildQuoteLineItems(site, summary);
+  const remarksLines = buildQuoteRemarksLines(site, summary);
+  const rowCount = Math.max(items.length, QUOTE_TABLE_MIN_ROWS);
 
-  const itemRowsHtml = items.map(r => `
-    <tr>
-      <td>${escapeHtml(r.label)}</td>
-      <td class="num-col">${fmt(r.qty)}</td>
-      <td>${escapeHtml(r.unitLabel)}</td>
-      <td class="num-col">${yen(r.unitPrice)}</td>
-      <td class="num-col">${yen(r.qty * r.unitPrice)}</td>
-      <td>${escapeHtml(r.freqText)}</td>
-    </tr>
-  `).join("");
-
-  const unpricedNote = summary.unpricedCount > 0
-    ? `※単価未設定の品目（${summary.unpricedCount}種別）は本見積りの金額に含まれていません。`
-    : "";
-
-  // 御社の実際の見積書雛形は、内訳表の実データ行が少ない場合でも最低6行分の罫線を空欄のまま印字して
-  // 表の体裁（伝票然とした見た目）を保っている。見た目を合わせるため、実データ行が6行に満たない分だけ
-  // 空欄行を補う。
-  const blankRowCount = Math.max(0, 6 - items.length);
-  const blankRowsHtml = Array.from({ length: blankRowCount })
-    .map(() => `<tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>`)
-    .join("");
+  const itemRowsHtml = Array.from({ length: rowCount }, (_, idx) => {
+    const item = items[idx];
+    if (!item) {
+      return `<tr><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-unit">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr>`;
+    }
+    return `<tr>
+      <td class="col-no">${idx + 1}</td>
+      <td class="col-desc">${escapeHtml(item.label)}</td>
+      <td class="col-qty">${fmt(item.qty)}</td>
+      <td class="col-unit">${escapeHtml(item.unitLabel)}</td>
+      <td class="col-price">${fmt(item.unitPrice)}</td>
+      <td class="col-amount">${yen(item.qty * item.unitPrice)}</td>
+    </tr>`;
+  }).join("");
 
   return `
-    <h1>御　見　積　書</h1>
-    <div class="print-quote-date">${todayText}</div>
-    <div class="print-quote-meta">
-      <div class="print-quote-to"><span class="name">${escapeHtml(site.name) || "(未入力)"}</span><span class="suffix">　御中</span></div>
-      <div class="print-quote-from">
+    <div class="jp-title-bar">見積書</div>
+    <div class="jp-date">${formatEraDate(today)}</div>
+    <div class="jp-addressee"><span class="box">${escapeHtml(site.name) || "(未入力)"}　御中</span></div>
+    <div class="jp-greeting">
+      <div>下記の通りお見積もり申し上げます。</div>
+      <div>何卒ご下命賜りますよう宜しくお願い申し上げます。</div>
+    </div>
+    <div class="jp-fields-wrap">
+      <table class="jp-fields">
+        <tr><th>件　　名：</th><td class="fv-13">廃棄物処理（定期回収）</td></tr>
+        <tr><th>作業場所：</th><td>貴社ご指定場所</td></tr>
+        <tr><th>決算条件：</th><td>打ち合わせ</td></tr>
+        <tr><th>有効期限：</th><td>３０日</td></tr>
+      </table>
+      <div class="jp-sender">
         〒143-0026<br>
         東京都大田区西馬込1-2-12<br>
-        TEL:03-3777-4122<br>
-        FAX:03-3778-3796<br>
+        <span class="telfax">TEL:03-3777-4122</span><br>
+        <span class="telfax">FAX:03-3778-3796</span><br>
         　担当:${escapeHtml(site.staffName) || ""}
       </div>
     </div>
-    <div class="print-quote-fields">
-      <div><span class="label">件　　　名</span><span>廃棄物処理　(定期回収）</span></div>
-      <div><span class="label">作業場所</span><span>貴社ご指定場所</span></div>
-      <div><span class="label">決算条件</span><span>打ち合わせ</span></div>
-      <div><span class="label">有効期限</span><span>３０日</span></div>
-    </div>
-    <div class="print-quote-bar">
-      <div>単価見積</div>
-      <div>下記の通り　（税別）</div>
-    </div>
-    <h2>内　訳</h2>
-    <table class="print-quote-table">
+    <div class="jp-grand-total">お見積合計：　<span class="amount">${fmt(totalWithTax)}</span>　円</div>
+    <table class="jp-items-table">
       <colgroup>
-        <col style="width:34%"><col style="width:9%"><col style="width:8%"><col style="width:11%"><col style="width:13%"><col style="width:25%">
+        <col class="col-no"><col class="col-desc"><col class="col-qty"><col class="col-unit"><col class="col-price"><col class="col-amount">
       </colgroup>
       <thead>
-        <tr><th>摘　要</th><th>数　量</th><th>単位</th><th>単　価</th><th>金　額</th><th>備　考</th></tr>
+        <tr><th>No.</th><th>明細</th><th>数量</th><th>単位</th><th>単価</th><th>金額</th></tr>
       </thead>
       <tbody>
-        <tr class="print-quote-category"><td colspan="6">廃棄物処理　（定期回収）</td></tr>
-        <tr><td colspan="5">　${escapeHtml(site.name) || "(未入力)"}</td><td>収集頻度（曜日）</td></tr>
         ${itemRowsHtml}
-        ${blankRowsHtml}
-        <tr class="print-quote-total-row"><td colspan="4">小　計</td><td class="num-col">${yen(summary.quoteTotal)}</td><td></td></tr>
-        <tr class="print-quote-total-row"><td colspan="4">消費税</td><td class="num-col">${yen(tax)}</td><td></td></tr>
-        <tr class="print-quote-total-row"><td colspan="4">合　計</td><td class="num-col">${yen(totalWithTax)}</td><td></td></tr>
+        <tr class="jp-sum-row"><td colspan="4" class="blank"></td><td class="label">小計</td><td class="value">${yen(summary.quoteTotal)}</td></tr>
+        <tr class="jp-sum-row"><td colspan="4" class="blank"></td><td class="label">消費税率</td><td class="value">${Math.round(TAX_RATE * 100)}%</td></tr>
+        <tr class="jp-sum-row"><td colspan="4" class="blank"></td><td class="label">消費税</td><td class="value">${yen(tax)}</td></tr>
+        <tr class="jp-sum-row jp-grand-row"><td colspan="4" class="blank"></td><td class="label">合計</td><td class="value">${yen(totalWithTax)}</td></tr>
       </tbody>
     </table>
-    <div class="print-quote-remarks">
-      <div class="label">＜備　考＞</div>
-      <div class="body">${escapeHtml(site.workConditions)}</div>
+    <div class="jp-remarks-box">
+      <div class="label">備考</div>
+      <div class="body">${escapeHtml(remarksLines.join("\n"))}</div>
     </div>
-    ${unpricedNote ? `<div class="print-quote-note">${escapeHtml(unpricedNote)}</div>` : ""}
   `;
 }
 
@@ -1902,7 +1901,7 @@ function generatePrintQuoteHtml(site, summary) {
 // iframeの制限を受けずにwindow.print()が動作する。
 function buildPrintQuoteDocument(site, summary) {
   const printQuoteHtml = generatePrintQuoteHtml(site, summary);
-  const titleText = escapeXml(`御見積書_${site.name || ""}`);
+  const titleText = escapeXml(`見積書_${site.name || ""}`);
   return `<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -1911,7 +1910,7 @@ function buildPrintQuoteDocument(site, summary) {
 <style>
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
-  body { font-family: "MS Mincho", "ＭＳ 明朝", "Yu Mincho", serif; color: #111; background: #e8e8e8; }
+  body { font-family: "HGP教科書体", "HG\\5B66\\7D71\\4F53", "YuMincho", "Hiragino Mincho ProN", "MS Mincho", serif; color: #111; background: #e8e8e8; }
   .print-toolbar {
     max-width: 800px; margin: 0 auto; padding: 16px 0 0; text-align: right;
   }
@@ -1927,36 +1926,51 @@ function buildPrintQuoteDocument(site, summary) {
   }
   .print-quote-page {
     max-width: 800px; margin: 16px auto 40px; background: #fff; padding: 32px;
-    box-shadow: 0 1px 6px rgba(0,0,0,0.2); font-size: 0.92rem;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.2);
   }
-  .print-quote-page h1 {
-    font-size: 1.6rem; text-align: center; letter-spacing: 0.6em; text-indent: 0.6em; margin: 0 0 20px; color: #111; font-weight: 700;
+  /* 以下、実際の見積書Excelテンプレート（テンプレシート）のセル書式に合わせたスタイル。
+     フォントサイズはテンプレートのポイント数をそのままpt単位で指定している。 */
+  .jp-title-bar {
+    background: #ffff99; font-size: 22pt; font-weight: 700; text-align: center;
+    padding: 10px 0; margin-bottom: 4px;
   }
-  .print-quote-page .print-quote-date { text-align: right; font-size: 0.9rem; margin-bottom: 22px; }
-  .print-quote-page .print-quote-meta { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 4px; }
-  .print-quote-page .print-quote-to { font-size: 1.2rem; font-weight: 700; }
-  .print-quote-page .print-quote-to .name {
-    border-bottom: 2px solid #111; padding-bottom: 6px; display: inline-block; min-width: 180px;
+  .jp-date { text-align: right; font-size: 11pt; margin-bottom: 14px; }
+  .jp-addressee { margin-bottom: 14px; }
+  .jp-addressee .box {
+    display: inline-block; min-width: 260px; font-size: 14pt; font-weight: 700;
+    text-align: center; border-bottom: 1px solid #111; padding-bottom: 4px;
   }
-  .print-quote-page .print-quote-to .suffix { padding-bottom: 6px; display: inline-block; }
-  .print-quote-page .print-quote-from { font-size: 0.82rem; line-height: 1.85; text-align: left; white-space: nowrap; }
-  .print-quote-page .print-quote-fields { margin: 20px 0 18px; font-size: 0.88rem; }
-  .print-quote-page .print-quote-fields > div { border-bottom: 1px solid #999; padding: 5px 2px; display: flex; }
-  .print-quote-page .print-quote-fields .label { width: 92px; flex-shrink: 0; color: #333; }
-  .print-quote-page .print-quote-bar { display: flex; border: 1px solid #111; margin-bottom: 18px; font-weight: 700; font-size: 1rem; }
-  .print-quote-page .print-quote-bar > div { flex: 1; text-align: center; padding: 8px; }
-  .print-quote-page .print-quote-bar > div:first-child { flex: none; width: 260px; border-right: 1px solid #111; }
-  .print-quote-page h2 { font-size: 1rem; text-align: center; margin: 0 0 8px; letter-spacing: 0.4em; text-indent: 0.4em; font-weight: 700; }
-  .print-quote-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; margin-bottom: 4px; }
-  .print-quote-table th, .print-quote-table td { border: 1px solid #333; padding: 7px 8px; }
-  .print-quote-table thead th { background: #eee; text-align: center; }
-  .print-quote-table td.num-col, .print-quote-table th.num-col { text-align: right; }
-  .print-quote-table tr.print-quote-category td { font-weight: 700; }
-  .print-quote-table tr.print-quote-total-row td { font-weight: 700; text-align: center; }
-  .print-quote-page .print-quote-remarks { margin-top: 18px; font-size: 0.85rem; }
-  .print-quote-page .print-quote-remarks .label { font-weight: 700; margin-bottom: 4px; }
-  .print-quote-page .print-quote-remarks .body { white-space: pre-wrap; line-height: 1.7; min-height: 1.4em; }
-  .print-quote-page .print-quote-note { font-size: 0.78rem; color: #333; margin-top: 14px; white-space: pre-wrap; line-height: 1.7; }
+  .jp-greeting { font-size: 12pt; line-height: 1.7; margin-bottom: 16px; }
+  .jp-fields-wrap { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 10px; }
+  .jp-fields { border-collapse: collapse; }
+  .jp-fields th { font-size: 12pt; font-weight: 400; text-align: right; white-space: nowrap; padding: 2px 4px; vertical-align: middle; }
+  .jp-fields td { font-size: 11pt; text-align: left; padding: 2px 4px; vertical-align: middle; }
+  .jp-fields td.fv-13 { font-size: 12pt; }
+  .jp-sender { font-size: 12pt; line-height: 1.7; text-align: left; white-space: nowrap; }
+  .jp-sender .telfax { font-size: 13pt; }
+  .jp-grand-total {
+    font-size: 18pt; font-weight: 700; border-bottom: 2px solid #111;
+    padding-bottom: 6px; margin: 10px 0 16px; display: inline-block;
+  }
+  .jp-items-table { width: 100%; border-collapse: collapse; font-size: 11pt; margin-bottom: 4px; }
+  .jp-items-table col.col-no { width: 6%; }
+  .jp-items-table col.col-desc { width: 40%; }
+  .jp-items-table col.col-qty { width: 9%; }
+  .jp-items-table col.col-unit { width: 8%; }
+  .jp-items-table col.col-price { width: 17%; }
+  .jp-items-table col.col-amount { width: 20%; }
+  .jp-items-table th, .jp-items-table td { border: 1px solid #333; padding: 4px 6px; }
+  .jp-items-table thead th { font-size: 12pt; background: #dceed5; text-align: center; }
+  .jp-items-table td.col-no, .jp-items-table td.col-unit { text-align: center; }
+  .jp-items-table td.col-qty, .jp-items-table td.col-price, .jp-items-table td.col-amount { text-align: right; }
+  .jp-items-table tr.jp-sum-row td.blank { border: none; }
+  .jp-items-table tr.jp-sum-row td.label { text-align: right; border-top: none; border-left: none; }
+  .jp-items-table tr.jp-sum-row td.value { text-align: right; }
+  .jp-items-table tr.jp-grand-row td.label { font-size: 14pt; font-weight: 700; }
+  .jp-items-table tr.jp-grand-row td.value { font-weight: 700; border: 1px solid #333; }
+  .jp-remarks-box { border: 1px solid #333; margin-top: 10px; padding: 6px 10px; min-height: 60px; font-size: 11pt; }
+  .jp-remarks-box .label { font-weight: 400; margin-bottom: 4px; }
+  .jp-remarks-box .body { white-space: pre-wrap; line-height: 1.7; }
   @media print {
     body { background: #fff; }
     .print-toolbar { display: none; }
@@ -2458,11 +2472,6 @@ const XLSX_ITEM_BASE_LABEL = {
   "古紙": "古紙（資源ごみ）"
 };
 
-// site.staffName等から、見積書Excelの明細行（品目・初回手数料・最低基本料金調整）を組み立てる。
-// 実際の見積書にならい、品目ごとに「収集運搬費」「処分費」の2行に分けて記載する
-// （単価を正確に半分ずつ割り、端数は片方に寄せることで、2行の金額を足すと必ず元の単価と一致するようにしている）。
-// 「最低基本料金調整」行は、最低基本料金が適用されている場合だけ、内訳の実額と最低基本料金の
-// 差額をもう1行足すことで、SUM数式のままでも画面表示（summary.quoteTotal）と一致する合計になるようにしている。
 // 見積書PDF・見積書Excelの内訳行を共通で組み立てる（単一のソースから生成することで、
 // 「タブで開く」版と「Excelダウンロード」版の内容が必ず完全に一致するようにしている）。
 // 実際の見積書にならい、品目ごとに「収集運搬費」「処分費」の2行に分けて記載する
@@ -2493,18 +2502,32 @@ function buildQuoteLineItems(site, summary) {
   return lines;
 }
 
+// 実際の見積書テンプレート（テンプレシート）は、明細の実データが少なくても
+// 常に12行分（21〜32行目）の罫線を空欄のまま残した表になっている。
+// PDF版・Excel版ともにこの行数に合わせることで見た目を完全に一致させる。
+const QUOTE_TABLE_MIN_ROWS = 12;
+
+// 見積書PDF・見積書Excelの備考欄を共通で組み立てる（単一のソースから生成することで内容を完全に一致させる）。
+function buildQuoteRemarksLines(site, summary) {
+  const lines = (site.workConditions || "").split("\n").map(l => l.trim()).filter(Boolean);
+  if (summary.unpricedCount > 0) {
+    lines.push(`※単価未設定の品目（${summary.unpricedCount}種別）は本見積りの金額に含まれていません。`);
+  }
+  return lines;
+}
+
 function buildQuoteXlsxSheetXml(site, summary) {
   const today = new Date();
   const items = buildQuoteLineItems(site, summary);
   const itemCount = items.length;
   const firstItemRow = 21;
-  const lastItemRow = firstItemRow + Math.max(itemCount, 1) - 1; // 品目が0件でも罫線付きの表が1行は残るように
+  const lastItemRow = firstItemRow + Math.max(itemCount, QUOTE_TABLE_MIN_ROWS) - 1;
   const subtotalRow = lastItemRow + 1;
   const taxRateRow = subtotalRow + 1;
   const taxRow = taxRateRow + 1;
   const totalRow = taxRow + 1;
   const remarksLabelRow = totalRow + 2;
-  const remarksLines = (site.workConditions || "").split("\n").filter(l => l.trim());
+  const remarksLines = buildQuoteRemarksLines(site, summary);
 
   const rows = [];
   const cell = (ref, text, style) => xlsxCellInline(ref, text, style);
@@ -2514,7 +2537,7 @@ function buildQuoteXlsxSheetXml(site, summary) {
   rows.push(`<row r="6">${cell("B6", `${site.name || "(未入力)"}　御中`, XS.toName)}</row>`);
   rows.push(`<row r="9">${cell("B9", "下記の通りお見積もり申し上げます。", XS.fieldValue)}</row>`);
   rows.push(`<row r="10">${cell("B10", "何卒ご下命賜りますよう宜しくお願い申し上げます。", XS.fieldValue)}</row>`);
-  rows.push(`<row r="13">${cell("C13", "件　　名：", XS.fieldLabel)}${cell("D13", "廃棄物処理　(定期回収）", XS.fieldValue)}${cell("I13", "〒143-0026", XS.addr)}</row>`);
+  rows.push(`<row r="13">${cell("C13", "件　　名：", XS.fieldLabel)}${cell("D13", "廃棄物処理（定期回収）", XS.fieldValue)}${cell("I13", "〒143-0026", XS.addr)}</row>`);
   rows.push(`<row r="14">${cell("C14", "作業場所：", XS.fieldLabel)}${cell("D14", "貴社ご指定場所", XS.fieldValue)}${cell("I14", "東京都大田区西馬込1-2-12", XS.addr)}</row>`);
   rows.push(`<row r="15">${cell("C15", "決算条件：", XS.fieldLabel)}${cell("D15", "打ち合わせ", XS.fieldValue)}${cell("I15", "TEL:03-3777-4122", XS.telfax)}</row>`);
   rows.push(`<row r="16">${cell("C16", "有効期限：", XS.fieldLabel)}${cell("D16", "３０日", XS.fieldValue)}${cell("I16", "FAX:03-3778-3796", XS.telfax)}</row>`);
