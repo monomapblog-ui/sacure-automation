@@ -2477,16 +2477,36 @@ function buildQuoteXlsxStylesXml() {
 // site.staffName等から、見積書Excelの明細行（品目・初回手数料・最低基本料金調整）を組み立てる。
 // 「最低基本料金調整」行は、最低基本料金が適用されている場合だけ、内訳の実額と最低基本料金の
 // 差額をもう1行足すことで、SUM数式のままでも画面表示（summary.quoteTotal）と一致する合計になるようにしている。
+// 見積書Excelの明細名は、実際の見積書で使われている文言（例：「一般廃棄物（可燃）　収集運搬費」）に
+// 合わせている。袋サイズは実際の見積書の文言には出てこないため、Excel版の明細名には含めない
+// （数量・単位には引き続き反映される）。
+const XLSX_ITEM_BASE_LABEL = {
+  "可燃ごみ": "一般廃棄物（可燃）",
+  "不燃ごみ": "一般廃棄物（不燃）",
+  "段ボール": "一般廃棄物（段ボール）",
+  "発泡スチロール": "一般廃棄物（発泡スチロール）",
+  "古紙": "古紙（資源ごみ）"
+};
+
+// site.staffName等から、見積書Excelの明細行（品目・初回手数料・最低基本料金調整）を組み立てる。
+// 実際の見積書にならい、品目ごとに「収集運搬費」「処分費」の2行に分けて記載する
+// （単価を正確に半分ずつ割り、端数は片方に寄せることで、2行の金額を足すと必ず元の単価と一致するようにしている）。
+// 「最低基本料金調整」行は、最低基本料金が適用されている場合だけ、内訳の実額と最低基本料金の
+// 差額をもう1行足すことで、SUM数式のままでも画面表示（summary.quoteTotal）と一致する合計になるようにしている。
 function buildQuoteXlsxLineItems(site, summary) {
-  const lines = site.items
-    .map(item => {
-      const unitPrice = getUnitPrice(item);
-      if (unitPrice === undefined) return null;
-      const detail = getPriceDetail(item);
-      const monthlyQty = computeItem(item).monthlyAvg;
-      return { label: itemLabel(item), qty: monthlyQty, unitLabel: detail ? detail.unitLabel : "個", unitPrice };
-    })
-    .filter(Boolean);
+  const lines = [];
+  site.items.forEach(item => {
+    const unitPrice = getUnitPrice(item);
+    if (unitPrice === undefined) return;
+    const detail = getPriceDetail(item);
+    const unitLabel = detail ? detail.unitLabel : "個";
+    const monthlyQty = computeItem(item).monthlyAvg;
+    const baseLabel = XLSX_ITEM_BASE_LABEL[item.type] || itemLabelPlain(item);
+    const priceA = Math.floor(unitPrice / 2);
+    const priceB = unitPrice - priceA;
+    lines.push({ label: `${baseLabel}　収集運搬費`, qty: monthlyQty, unitLabel, unitPrice: priceA });
+    lines.push({ label: `${baseLabel}　処分費`, qty: monthlyQty, unitLabel, unitPrice: priceB });
+  });
   if (summary.minimumApplied) {
     lines.push({ label: "最低基本料金調整", qty: 1, unitLabel: "式", unitPrice: summary.monthlyCost - summary.totalCost });
   }
