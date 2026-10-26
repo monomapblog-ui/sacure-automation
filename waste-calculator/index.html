@@ -2619,6 +2619,13 @@ function buildQuoteXlsxBlob(site, summary) {
   return new Blob([buildQuoteXlsxBytes(site, summary)], { type: XLSX_MIME });
 }
 
+// 契約書(.docx)と同様、ダウンロードボタンが反応しない環境向けに、data:URIへの通常のリンク遷移
+// （target="_blank"）でも開ける（＝ダウンロードできる）ようにしておく保険。
+function buildQuoteXlsxDataUrl(site, summary) {
+  const base64 = uint8ToBase64(buildQuoteXlsxBytes(site, summary));
+  return `data:${XLSX_MIME};base64,${base64}`;
+}
+
 // Artifact（claude.ai）上では、iframeのサンドボックス制約によりブラウザへの直接ダウンロード
 // （<a download>のクリック）が反応しないことがあるため、window.claude.downloadsが使える場合は
 // そちらを優先する。使えない場合（ローカルでindex.htmlを直接開いた場合など）は従来方式にする。
@@ -2767,6 +2774,7 @@ function renderQuoteScreen(site) {
         <div class="terms-actions" style="justify-content:flex-start; flex-wrap:wrap;">
           <span class="copy-feedback" data-role="downloadXlsxFeedback"></span>
           <button data-role="downloadXlsx">見積書をダウンロード（Excel）</button>
+          <a data-role="downloadXlsxLink" target="_blank" rel="noopener" download="mitsumorisho.xlsx" class="note" style="margin:0;">ダウンロードされない場合はこちら（別ウィンドウで開く）</a>
         </div>
       </div>
       <div class="terms-section">
@@ -2830,6 +2838,7 @@ function renderQuoteScreen(site) {
     feedback.textContent = result.ok ? "ダウンロードしました！" : (result.message || "ダウンロードに失敗しました。");
     setTimeout(() => { feedback.textContent = ""; }, 4000);
   });
+  wrap.querySelector('[data-role="downloadXlsxLink"]').href = buildQuoteXlsxDataUrl(site, summary);
   wrap.querySelector('[data-role="downloadContractLink"]').href = buildContractDocxDataUrl(site);
   wrap.querySelector('[data-role="downloadContract"]').addEventListener("click", async () => {
     const feedback = wrap.querySelector('[data-role="downloadFeedback"]');
