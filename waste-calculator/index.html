@@ -2380,6 +2380,245 @@ function formatTimestampForFilename() {
   return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 }
 
+// ==================================================================
+// 見積書（Excel）の生成
+// 社内で使っている見積書テンプレート（アップロードされたxlsxの「テンプレ」シート）の
+// レイアウト・数式構成にならい、外部ライブラリを使わずZIP（storeモード）とOOXMLを
+// 直接組み立てて .xlsx を出力する（契約書.docxと同じ方式）。
+// 数量×単価の数式は各行に残し、小計〜合計もSUM式のままにしているため、
+// ダウンロード後にExcel上で単価・数量を直接修正しても自動で再計算される。
+// ==================================================================
+const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+// Excelのシリアル日付（1899-12-30を起点とする日数）に変換
+function excelSerialDate(date) {
+  const utcDate = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+  const epoch = Date.UTC(1899, 11, 30);
+  return Math.round((utcDate - epoch) / 86400000);
+}
+
+function xlsxCellInline(ref, text, styleId) {
+  return `<c r="${ref}"${styleId !== undefined ? ` s="${styleId}"` : ""} t="inlineStr"><is><t xml:space="preserve">${escapeXml(text == null ? "" : String(text))}</t></is></c>`;
+}
+function xlsxCellNumber(ref, num, styleId) {
+  return `<c r="${ref}"${styleId !== undefined ? ` s="${styleId}"` : ""}><v>${num}</v></c>`;
+}
+function xlsxCellFormula(ref, formula, styleId) {
+  return `<c r="${ref}"${styleId !== undefined ? ` s="${styleId}"` : ""}><f>${escapeXml(formula)}</f></c>`;
+}
+
+// スタイルID（xl/styles.xmlのcellXfsの並び順と1対1で対応させる。両方を必ず同時に直すこと）
+const XS = {
+  title: 1, date: 2, toName: 3, fieldLabel: 4, fieldValue: 5, addr: 6, telfax: 7,
+  totalLabel: 8, totalValue: 9, th: 10, tdText: 11, tdCenter: 12, tdMoney: 13, tdAmount: 14,
+  sumLabel: 15, sumLabelTop: 16, sumMoney: 17, sumMoneyTop: 18, pct: 19,
+  grandLabel: 20, grandMoney: 21, remarksLabel: 22, remarksBody: 23, tdQty: 24
+};
+
+function buildQuoteXlsxStylesXml() {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <numFmts count="2">
+    <numFmt numFmtId="164" formatCode="&quot;¥&quot;#,##0_);[Red]\(&quot;¥&quot;#,##0\)"/>
+    <numFmt numFmtId="165" formatCode="ggge&quot;年&quot;m&quot;月&quot;d&quot;日&quot;\(aaa\)"/>
+  </numFmts>
+  <fonts count="7">
+    <font><sz val="11"/><name val="HGP教科書体"/></font>
+    <font><sz val="22"/><b/><name val="HGP教科書体"/></font>
+    <font><sz val="14"/><b/><name val="HGP教科書体"/></font>
+    <font><sz val="12"/><name val="HGP教科書体"/></font>
+    <font><sz val="13"/><name val="HGP教科書体"/></font>
+    <font><sz val="18"/><b/><name val="HGP教科書体"/></font>
+    <font><sz val="11"/><b/><name val="HGP教科書体"/></font>
+  </fonts>
+  <fills count="2">
+    <fill><patternFill patternType="none"/></fill>
+    <fill><patternFill patternType="gray125"/></fill>
+  </fills>
+  <borders count="5">
+    <border><left/><right/><top/><bottom/><diagonal/></border>
+    <border><left/><right/><top/><bottom style="thin"><color indexed="64"/></bottom><diagonal/></border>
+    <border><left/><right/><top/><bottom style="medium"><color indexed="64"/></bottom><diagonal/></border>
+    <border><left style="thin"><color indexed="64"/></left><right style="thin"><color indexed="64"/></right><top style="thin"><color indexed="64"/></top><bottom style="thin"><color indexed="64"/></bottom><diagonal/></border>
+    <border><left/><right/><top style="thin"><color indexed="64"/></top><bottom/><diagonal/></border>
+  </borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="25">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+    <xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+    <xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="5" fillId="0" borderId="2" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>
+    <xf numFmtId="164" fontId="5" fillId="0" borderId="2" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="3" fillId="0" borderId="3" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="3" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="3" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+    <xf numFmtId="164" fontId="0" fillId="0" borderId="3" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+    <xf numFmtId="164" fontId="0" fillId="0" borderId="3" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="4" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="164" fontId="0" fillId="0" borderId="4" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="9" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="2" fillId="0" borderId="3" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+    <xf numFmtId="164" fontId="6" fillId="0" borderId="3" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="left" vertical="top" wrapText="1"/></xf>
+    <xf numFmtId="3" fontId="0" fillId="0" borderId="3" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+  </cellXfs>
+  <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+</styleSheet>`;
+}
+
+// site.staffName等から、見積書Excelの明細行（品目・初回手数料・最低基本料金調整）を組み立てる。
+// 「最低基本料金調整」行は、最低基本料金が適用されている場合だけ、内訳の実額と最低基本料金の
+// 差額をもう1行足すことで、SUM数式のままでも画面表示（summary.quoteTotal）と一致する合計になるようにしている。
+function buildQuoteXlsxLineItems(site, summary) {
+  const lines = site.items
+    .map(item => {
+      const unitPrice = getUnitPrice(item);
+      if (unitPrice === undefined) return null;
+      const detail = getPriceDetail(item);
+      const monthlyQty = computeItem(item).monthlyAvg;
+      return { label: itemLabel(item), qty: monthlyQty, unitLabel: detail ? detail.unitLabel : "個", unitPrice };
+    })
+    .filter(Boolean);
+  if (summary.minimumApplied) {
+    lines.push({ label: "最低基本料金調整", qty: 1, unitLabel: "式", unitPrice: summary.monthlyCost - summary.totalCost });
+  }
+  if (site.includeSetupFee) {
+    lines.push({ label: "初回手数料", qty: 1, unitLabel: "式", unitPrice: SETUP_FEE });
+  }
+  return lines;
+}
+
+function buildQuoteXlsxSheetXml(site, summary) {
+  const today = new Date();
+  const items = buildQuoteXlsxLineItems(site, summary);
+  const itemCount = items.length;
+  const firstItemRow = 21;
+  const lastItemRow = firstItemRow + Math.max(itemCount, 1) - 1; // 品目が0件でも罫線付きの表が1行は残るように
+  const subtotalRow = lastItemRow + 1;
+  const taxRateRow = subtotalRow + 1;
+  const taxRow = taxRateRow + 1;
+  const totalRow = taxRow + 1;
+  const remarksLabelRow = totalRow + 2;
+  const remarksLines = (site.workConditions || "").split("\n").filter(l => l.trim());
+
+  const rows = [];
+  const cell = (ref, text, style) => xlsxCellInline(ref, text, style);
+
+  rows.push(`<row r="3">${cell("B3", "見積書", XS.title)}</row>`);
+  rows.push(`<row r="4">${xlsxCellNumber("J4", excelSerialDate(today), XS.date)}</row>`);
+  rows.push(`<row r="6">${cell("B6", `${site.name || "(未入力)"}　御中`, XS.toName)}</row>`);
+  rows.push(`<row r="9">${cell("B9", "下記の通りお見積もり申し上げます。", XS.fieldValue)}</row>`);
+  rows.push(`<row r="10">${cell("B10", "何卒ご下命賜りますよう宜しくお願い申し上げます。", XS.fieldValue)}</row>`);
+  rows.push(`<row r="13">${cell("C13", "件　　名：", XS.fieldLabel)}${cell("D13", "廃棄物処理　(定期回収）", XS.fieldValue)}${cell("I13", "〒143-0026", XS.addr)}</row>`);
+  rows.push(`<row r="14">${cell("C14", "作業場所：", XS.fieldLabel)}${cell("D14", "貴社ご指定場所", XS.fieldValue)}${cell("I14", "東京都大田区西馬込1-2-12", XS.addr)}</row>`);
+  rows.push(`<row r="15">${cell("C15", "決算条件：", XS.fieldLabel)}${cell("D15", "打ち合わせ", XS.fieldValue)}${cell("I15", "TEL:03-3777-4122", XS.telfax)}</row>`);
+  rows.push(`<row r="16">${cell("C16", "有効期限：", XS.fieldLabel)}${cell("D16", "３０日", XS.fieldValue)}${cell("I16", "FAX:03-3778-3796", XS.telfax)}</row>`);
+  rows.push(`<row r="17">${cell("I17", `　担当:${site.staffName || ""}`, XS.telfax)}</row>`);
+  rows.push(`<row r="18">${cell("B18", "お見積合計：", XS.totalLabel)}${xlsxCellFormula("D18", `J${totalRow}`, XS.totalValue)}${cell("F18", "円", XS.totalLabel)}</row>`);
+  rows.push(`<row r="20">${cell("B20", "No.", XS.th)}${cell("C20", "明細", XS.th)}${cell("G20", "数量", XS.th)}${cell("H20", "単位", XS.th)}${cell("I20", "単価", XS.th)}${cell("J20", "金額", XS.th)}</row>`);
+
+  for (let r = firstItemRow; r <= lastItemRow; r++) {
+    const idx = r - firstItemRow;
+    const item = items[idx];
+    const cells = [cell(`B${r}`, item ? String(idx + 1) : "", XS.tdCenter)];
+    cells.push(cell(`C${r}`, item ? item.label : "", XS.tdText));
+    cells.push(item ? xlsxCellNumber(`G${r}`, item.qty, XS.tdQty) : cell(`G${r}`, "", XS.tdQty));
+    cells.push(cell(`H${r}`, item ? item.unitLabel : "", XS.tdCenter));
+    if (item) {
+      cells.push(xlsxCellNumber(`I${r}`, item.unitPrice, XS.tdMoney));
+      cells.push(xlsxCellFormula(`J${r}`, `G${r}*I${r}`, XS.tdAmount));
+    } else {
+      cells.push(cell(`I${r}`, "", XS.tdMoney));
+      cells.push(cell(`J${r}`, "", XS.tdAmount));
+    }
+    rows.push(`<row r="${r}">${cells.join("")}</row>`);
+  }
+
+  rows.push(`<row r="${subtotalRow}">${cell(`I${subtotalRow}`, "小計", XS.sumLabelTop)}${xlsxCellFormula(`J${subtotalRow}`, `SUM(J${firstItemRow}:J${lastItemRow})`, XS.sumMoneyTop)}</row>`);
+  rows.push(`<row r="${taxRateRow}">${cell(`I${taxRateRow}`, "消費税率", XS.sumLabel)}${xlsxCellNumber(`J${taxRateRow}`, TAX_RATE, XS.pct)}</row>`);
+  rows.push(`<row r="${taxRow}">${cell(`I${taxRow}`, "消費税", XS.sumLabel)}${xlsxCellFormula(`J${taxRow}`, `ROUND(J${subtotalRow}*J${taxRateRow},0)`, XS.sumMoney)}</row>`);
+  rows.push(`<row r="${totalRow}">${cell(`I${totalRow}`, "合計", XS.grandLabel)}${xlsxCellFormula(`J${totalRow}`, `SUM(J${subtotalRow},J${taxRow})`, XS.grandMoney)}</row>`);
+
+  rows.push(`<row r="${remarksLabelRow}">${cell(`B${remarksLabelRow}`, "備考", XS.remarksLabel)}</row>`);
+  remarksLines.forEach((line, i) => {
+    rows.push(`<row r="${remarksLabelRow + 1 + i}">${cell(`B${remarksLabelRow + 1 + i}`, line, XS.remarksBody)}</row>`);
+  });
+
+  const merges = [
+    "B3:K3", "J4:K4", "B6:E6", "D18:E18", "C20:F20", "J20:K20",
+    ...Array.from({ length: lastItemRow - firstItemRow + 1 }, (_, i) => `C${firstItemRow + i}:F${firstItemRow + i}`),
+    ...Array.from({ length: lastItemRow - firstItemRow + 1 }, (_, i) => `J${firstItemRow + i}:K${firstItemRow + i}`)
+  ];
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <cols>
+    <col min="5" max="5" width="4.375" customWidth="1"/>
+    <col min="8" max="8" width="5.125" customWidth="1"/>
+  </cols>
+  <sheetData>
+    ${rows.join("\n    ")}
+  </sheetData>
+  <mergeCells count="${merges.length}">
+    ${merges.map(m => `<mergeCell ref="${m}"/>`).join("\n    ")}
+  </mergeCells>
+</worksheet>`;
+}
+
+function buildQuoteXlsxBytes(site, summary) {
+  const sheetXml = buildQuoteXlsxSheetXml(site, summary);
+  const stylesXml = buildQuoteXlsxStylesXml();
+
+  const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+</Types>`;
+
+  const rootRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`;
+
+  const workbookXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>
+    <sheet name="見積書" sheetId="1" r:id="rId1"/>
+  </sheets>
+</workbook>`;
+
+  const workbookRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`;
+
+  const encoder = new TextEncoder();
+  return buildZip([
+    { name: "[Content_Types].xml", data: encoder.encode(contentTypesXml) },
+    { name: "_rels/.rels", data: encoder.encode(rootRelsXml) },
+    { name: "xl/workbook.xml", data: encoder.encode(workbookXml) },
+    { name: "xl/_rels/workbook.xml.rels", data: encoder.encode(workbookRelsXml) },
+    { name: "xl/styles.xml", data: encoder.encode(stylesXml) },
+    { name: "xl/worksheets/sheet1.xml", data: encoder.encode(sheetXml) }
+  ]);
+}
+
+function buildQuoteXlsxBlob(site, summary) {
+  return new Blob([buildQuoteXlsxBytes(site, summary)], { type: XLSX_MIME });
+}
+
 // Artifact（claude.ai）上では、iframeのサンドボックス制約によりブラウザへの直接ダウンロード
 // （<a download>のクリック）が反応しないことがあるため、window.claude.downloadsが使える場合は
 // そちらを優先する。使えない場合（ローカルでindex.htmlを直接開いた場合など）は従来方式にする。
@@ -2523,6 +2762,14 @@ function renderQuoteScreen(site) {
         </div>
       </div>
       <div class="terms-section">
+        <h3>見積書（Excelファイルをダウンロード）</h3>
+        <p class="note" style="margin:0 0 10px;">社内で使っている見積書テンプレートと同じレイアウト・数式（数量×単価、小計・消費税・合計のSUM式）でExcelファイルを出力します。1案件につき1ファイルなので、集計用のExcelファイルに手元でシートごとコピー＆貼り付けしてください。<br>※ブラウザの都合上、ファイル名は「mitsumorisho_日時.xlsx」になります（日本語ファイル名にできないため）。</p>
+        <div class="terms-actions" style="justify-content:flex-start; flex-wrap:wrap;">
+          <span class="copy-feedback" data-role="downloadXlsxFeedback"></span>
+          <button data-role="downloadXlsx">見積書をダウンロード（Excel）</button>
+        </div>
+      </div>
+      <div class="terms-section">
         <h3>契約書（Wordファイルをダウンロード）</h3>
         <p class="note" style="margin:0 0 10px;">品目・料金・作業条件をもとにした簡易な契約書の雛形です。住所・代表者名などは空欄になっているので、実際の契約締結前に内容を確認・加筆してください。<br>※ブラウザの都合上、ファイル名は「keiyakusho_日時.docx」になります（日本語ファイル名にできないため）。保存後、必要に応じてリネームしてください。</p>
         <div class="terms-actions" style="justify-content:flex-start; flex-wrap:wrap;">
@@ -2574,6 +2821,14 @@ function renderQuoteScreen(site) {
       ? "新しいタブを開けなかったため、ファイルをダウンロードしました。開いて印刷してください。"
       : (result.message || "見積書を開けませんでした。");
     setTimeout(() => { feedback.textContent = ""; }, 5000);
+  });
+  wrap.querySelector('[data-role="downloadXlsx"]').addEventListener("click", async () => {
+    const feedback = wrap.querySelector('[data-role="downloadXlsxFeedback"]');
+    feedback.textContent = "";
+    const blob = buildQuoteXlsxBlob(site, summary);
+    const result = await downloadBlob(blob, `mitsumorisho_${formatTimestampForFilename()}.xlsx`);
+    feedback.textContent = result.ok ? "ダウンロードしました！" : (result.message || "ダウンロードに失敗しました。");
+    setTimeout(() => { feedback.textContent = ""; }, 4000);
   });
   wrap.querySelector('[data-role="downloadContractLink"]').href = buildContractDocxDataUrl(site);
   wrap.querySelector('[data-role="downloadContract"]').addEventListener("click", async () => {
