@@ -1820,58 +1820,29 @@ function generatePrintQuoteHtml(site, summary) {
   const todayText = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日`;
   const { tax, totalWithTax } = computeTax(summary.quoteTotal);
 
-  const itemRows = site.items
-    .map(item => {
-      const unitPrice = getUnitPrice(item);
-      if (unitPrice === undefined) return null;
-      const detail = getPriceDetail(item);
-      const monthlyQty = computeItem(item).monthlyAvg;
-      const freqText = item.inputMode === "weekly" ? "週合計目安" : `週${item.daysPerWeek}`;
-      return {
-        label: itemLabel(item),
-        qty: monthlyQty,
-        unitLabel: detail ? detail.unitLabel : "個",
-        unitPrice,
-        cost: monthlyQty * unitPrice,
-        freqText
-      };
-    })
-    .filter(Boolean);
+  // Excel版（buildQuoteXlsxSheetXml）と完全に同じ内訳行を使うことで、
+  // 「タブで開く」版とExcelダウンロード版の内容が必ず一致するようにしている。
+  const items = buildQuoteLineItems(site, summary);
 
-  const itemRowsHtml = itemRows.map(r => `
+  const itemRowsHtml = items.map(r => `
     <tr>
       <td>${escapeHtml(r.label)}</td>
       <td class="num-col">${fmt(r.qty)}</td>
       <td>${escapeHtml(r.unitLabel)}</td>
       <td class="num-col">${yen(r.unitPrice)}</td>
-      <td class="num-col">${yen(r.cost)}</td>
+      <td class="num-col">${yen(r.qty * r.unitPrice)}</td>
       <td>${escapeHtml(r.freqText)}</td>
     </tr>
   `).join("");
-  const setupFeeRow = site.includeSetupFee ? `
-    <tr>
-      <td>初回手数料</td>
-      <td class="num-col">－</td>
-      <td>－</td>
-      <td class="num-col">－</td>
-      <td class="num-col">${yen(SETUP_FEE)}</td>
-      <td>－</td>
-    </tr>
-  ` : "";
 
-  const minimumNote = summary.minimumApplied
-    ? `※品目内訳の合計が最低基本料金（${yen(summary.minMonthlyFee)}）を下回るため、最低基本料金を適用しています。`
-    : "";
   const unpricedNote = summary.unpricedCount > 0
     ? `※単価未設定の品目（${summary.unpricedCount}種別）は本見積りの金額に含まれていません。`
     : "";
-  const noteLines = [minimumNote, unpricedNote].filter(Boolean).join("\n");
 
   // 御社の実際の見積書雛形は、内訳表の実データ行が少ない場合でも最低6行分の罫線を空欄のまま印字して
   // 表の体裁（伝票然とした見た目）を保っている。見た目を合わせるため、実データ行が6行に満たない分だけ
   // 空欄行を補う。
-  const contentRowCount = itemRows.length + (site.includeSetupFee ? 1 : 0);
-  const blankRowCount = Math.max(0, 6 - contentRowCount);
+  const blankRowCount = Math.max(0, 6 - items.length);
   const blankRowsHtml = Array.from({ length: blankRowCount })
     .map(() => `<tr><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>`)
     .join("");
@@ -1882,18 +1853,18 @@ function generatePrintQuoteHtml(site, summary) {
     <div class="print-quote-meta">
       <div class="print-quote-to"><span class="name">${escapeHtml(site.name) || "(未入力)"}</span><span class="suffix">　御中</span></div>
       <div class="print-quote-from">
-        株式会社サキュレ<br>
-        環境事業部　営業部<br>
-        TEL　03-3558-7206<br>
-        FAX　03-3558-6475<br>
-        担当者　${escapeHtml(site.staffName) || "　　　　"}
+        〒143-0026<br>
+        東京都大田区西馬込1-2-12<br>
+        TEL:03-3777-4122<br>
+        FAX:03-3778-3796<br>
+        　担当:${escapeHtml(site.staffName) || ""}
       </div>
     </div>
     <div class="print-quote-fields">
       <div><span class="label">件　　　名</span><span>廃棄物処理　(定期回収）</span></div>
       <div><span class="label">作業場所</span><span>貴社ご指定場所</span></div>
-      <div><span class="label">決算条件</span><span>貴店指定</span></div>
-      <div><span class="label">有効期限</span><span>1ヶ月</span></div>
+      <div><span class="label">決算条件</span><span>打ち合わせ</span></div>
+      <div><span class="label">有効期限</span><span>３０日</span></div>
     </div>
     <div class="print-quote-bar">
       <div>単価見積</div>
@@ -1911,7 +1882,6 @@ function generatePrintQuoteHtml(site, summary) {
         <tr class="print-quote-category"><td colspan="6">廃棄物処理　（定期回収）</td></tr>
         <tr><td colspan="5">　${escapeHtml(site.name) || "(未入力)"}</td><td>収集頻度（曜日）</td></tr>
         ${itemRowsHtml}
-        ${setupFeeRow}
         ${blankRowsHtml}
         <tr class="print-quote-total-row"><td colspan="4">小　計</td><td class="num-col">${yen(summary.quoteTotal)}</td><td></td></tr>
         <tr class="print-quote-total-row"><td colspan="4">消費税</td><td class="num-col">${yen(tax)}</td><td></td></tr>
@@ -1922,7 +1892,7 @@ function generatePrintQuoteHtml(site, summary) {
       <div class="label">＜備　考＞</div>
       <div class="body">${escapeHtml(site.workConditions)}</div>
     </div>
-    ${noteLines ? `<div class="print-quote-note">${escapeHtml(noteLines)}</div>` : ""}
+    ${unpricedNote ? `<div class="print-quote-note">${escapeHtml(unpricedNote)}</div>` : ""}
   `;
 }
 
@@ -2493,7 +2463,13 @@ const XLSX_ITEM_BASE_LABEL = {
 // （単価を正確に半分ずつ割り、端数は片方に寄せることで、2行の金額を足すと必ず元の単価と一致するようにしている）。
 // 「最低基本料金調整」行は、最低基本料金が適用されている場合だけ、内訳の実額と最低基本料金の
 // 差額をもう1行足すことで、SUM数式のままでも画面表示（summary.quoteTotal）と一致する合計になるようにしている。
-function buildQuoteXlsxLineItems(site, summary) {
+// 見積書PDF・見積書Excelの内訳行を共通で組み立てる（単一のソースから生成することで、
+// 「タブで開く」版と「Excelダウンロード」版の内容が必ず完全に一致するようにしている）。
+// 実際の見積書にならい、品目ごとに「収集運搬費」「処分費」の2行に分けて記載する
+// （単価を正確に半分ずつ割り、端数は片方に寄せることで、2行の金額を足すと必ず元の単価と一致するようにしている）。
+// 「最低基本料金調整」行は、最低基本料金が適用されている場合だけ、内訳の実額と最低基本料金の
+// 差額をもう1行足すことで、SUM数式のままでも画面表示（summary.quoteTotal）と一致する合計になるようにしている。
+function buildQuoteLineItems(site, summary) {
   const lines = [];
   site.items.forEach(item => {
     const unitPrice = getUnitPrice(item);
@@ -2502,23 +2478,24 @@ function buildQuoteXlsxLineItems(site, summary) {
     const unitLabel = detail ? detail.unitLabel : "個";
     const monthlyQty = computeItem(item).monthlyAvg;
     const baseLabel = XLSX_ITEM_BASE_LABEL[item.type] || itemLabelPlain(item);
+    const freqText = item.inputMode === "weekly" ? "週合計目安" : `週${item.daysPerWeek}`;
     const priceA = Math.floor(unitPrice / 2);
     const priceB = unitPrice - priceA;
-    lines.push({ label: `${baseLabel}　収集運搬費`, qty: monthlyQty, unitLabel, unitPrice: priceA });
-    lines.push({ label: `${baseLabel}　処分費`, qty: monthlyQty, unitLabel, unitPrice: priceB });
+    lines.push({ label: `${baseLabel}　収集運搬費`, qty: monthlyQty, unitLabel, unitPrice: priceA, freqText });
+    lines.push({ label: `${baseLabel}　処分費`, qty: monthlyQty, unitLabel, unitPrice: priceB, freqText });
   });
   if (summary.minimumApplied) {
-    lines.push({ label: "最低基本料金調整", qty: 1, unitLabel: "式", unitPrice: summary.monthlyCost - summary.totalCost });
+    lines.push({ label: "最低基本料金調整", qty: 1, unitLabel: "式", unitPrice: summary.monthlyCost - summary.totalCost, freqText: "－" });
   }
   if (site.includeSetupFee) {
-    lines.push({ label: "初回手数料", qty: 1, unitLabel: "式", unitPrice: SETUP_FEE });
+    lines.push({ label: "初回手数料", qty: 1, unitLabel: "式", unitPrice: SETUP_FEE, freqText: "－" });
   }
   return lines;
 }
 
 function buildQuoteXlsxSheetXml(site, summary) {
   const today = new Date();
-  const items = buildQuoteXlsxLineItems(site, summary);
+  const items = buildQuoteLineItems(site, summary);
   const itemCount = items.length;
   const firstItemRow = 21;
   const lastItemRow = firstItemRow + Math.max(itemCount, 1) - 1; // 品目が0件でも罫線付きの表が1行は残るように
