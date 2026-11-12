@@ -1894,7 +1894,10 @@ function generatePrintQuoteHtml(site, summary) {
   const itemRowsHtml = Array.from({ length: rowCount }, (_, idx) => {
     const item = items[idx];
     if (!item) {
-      return `<tr><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-unit">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">&nbsp;</td></tr>`;
+      // 実際の見積書テンプレートは、空欄の行でも金額(J)列の数式(=G*I)だけは残っているため、
+      // 数量・単価が未入力のまま「¥0」と表示される。見た目を完全に一致させるため、
+      // 金額列だけは明細行と同じく「¥0」を表示する（他の列は空欄のまま）。
+      return `<tr><td class="col-no">&nbsp;</td><td class="col-desc">&nbsp;</td><td class="col-qty">&nbsp;</td><td class="col-unit">&nbsp;</td><td class="col-price">&nbsp;</td><td class="col-amount">${yen(0)}</td></tr>`;
     }
     return `<tr>
       <td class="col-no">${idx + 1}</td>
@@ -2010,12 +2013,12 @@ function buildPrintQuoteDocument(site, summary) {
     padding-bottom: 6px; margin: 10px 0 16px; display: inline-block;
   }
   .jp-items-table { width: 100%; border-collapse: collapse; font-size: 11pt; margin-bottom: 4px; }
-  .jp-items-table col.col-no { width: 6%; }
-  .jp-items-table col.col-desc { width: 40%; }
-  .jp-items-table col.col-qty { width: 9%; }
-  .jp-items-table col.col-unit { width: 8%; }
-  .jp-items-table col.col-price { width: 17%; }
-  .jp-items-table col.col-amount { width: 20%; }
+  .jp-items-table col.col-no { width: 9%; }
+  .jp-items-table col.col-desc { width: 38%; }
+  .jp-items-table col.col-qty { width: 10%; }
+  .jp-items-table col.col-unit { width: 7%; }
+  .jp-items-table col.col-price { width: 14%; }
+  .jp-items-table col.col-amount { width: 22%; }
   .jp-items-table th, .jp-items-table td { border: 1px solid #333; padding: 4px 6px; }
   .jp-items-table thead th { font-size: 12pt; background: #dceed5; text-align: center; }
   .jp-items-table td.col-no, .jp-items-table td.col-unit { text-align: center; }
@@ -2498,7 +2501,7 @@ function buildQuoteXlsxStylesXml() {
     <xf numFmtId="0" fontId="3" fillId="0" borderId="3" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
     <xf numFmtId="0" fontId="0" fillId="0" borderId="3" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>
     <xf numFmtId="0" fontId="0" fillId="0" borderId="3" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
-    <xf numFmtId="164" fontId="0" fillId="0" borderId="3" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
+    <xf numFmtId="3" fontId="0" fillId="0" borderId="3" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
     <xf numFmtId="164" fontId="0" fillId="0" borderId="3" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>
     <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
     <xf numFmtId="0" fontId="0" fillId="0" borderId="4" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>
@@ -2611,11 +2614,13 @@ function buildQuoteXlsxSheetXml(site, summary) {
     cells.push(cell(`H${r}`, item ? item.unitLabel : "", XS.tdCenter));
     if (item) {
       cells.push(xlsxCellNumber(`I${r}`, item.unitPrice, XS.tdMoney));
-      cells.push(xlsxCellFormula(`J${r}`, `G${r}*I${r}`, XS.tdAmount));
     } else {
       cells.push(cell(`I${r}`, "", XS.tdMoney));
-      cells.push(cell(`J${r}`, "", XS.tdAmount));
     }
+    // 実際の見積書テンプレート（テンプレシート）は、明細が無い行でも金額(J)列の数式
+    // 「=G*I」だけは残っており、数量・単価が未入力のまま計算されて「¥0」と表示される。
+    // 見た目を完全に一致させるため、品目が無い行でも数式自体は常に残す。
+    cells.push(xlsxCellFormula(`J${r}`, `G${r}*I${r}`, XS.tdAmount));
     rows.push(`<row r="${r}">${cells.join("")}</row>`);
   }
 
