@@ -556,10 +556,16 @@ function getCustomUnitPrice(item) {
   return result.invalid ? undefined : result.value;
 }
 
+// "weight"（1回あたり実測kg）・"monthlyWeight"（月間合計kg）はどちらも、数量の単位が
+// 「個数」ではなく「kg」になる点が共通しているため、まとめて判定できるようにしておく。
+function isWeightBasedMode(item) {
+  return item.inputMode === "weight" || item.inputMode === "monthlyWeight";
+}
+
 // 単価直接指定モードのときの単位表記（見た目は重量ベースの単価表と同じ「袋」「枚」に合わせる）。
 // 実重量(kg)入力モードのときは、数量自体がすでにkgなので単位も「kg」にする。
 function defaultBagUnitLabel(item) {
-  if (item.inputMode === "weight") return "kg";
+  if (isWeightBasedMode(item)) return "kg";
   if (item.type === "段ボール") return "枚";
   return BAG_SIZE_TYPES.includes(item.type) ? "袋" : "個";
 }
@@ -567,7 +573,7 @@ function defaultBagUnitLabel(item) {
 function getUnitPrice(item) {
   if (item.useCustomPrice) return getCustomUnitPrice(item);
   // 実重量(kg)をそのまま入力するモードでは、袋の想定重量を経由せず円/kgをそのまま単価として使う。
-  if (item.inputMode === "weight") return PRICE_PER_KG[item.type];
+  if (isWeightBasedMode(item)) return PRICE_PER_KG[item.type];
   const entry = PRICE_TABLE[item.type];
   if (entry === undefined) return undefined;
   if (typeof entry === "number") return entry;
@@ -1045,7 +1051,7 @@ function defaultItem(type) {
     type: type || "可燃ごみ",
     customType: "",
     bagSize: 45,
-    inputMode: "detail", // "detail"=1回あたり数量×頻度／"weekly"=週の合計をざっくり入力
+    inputMode: "detail", // "detail"=1回あたり数量×頻度／"weekly"=週の合計をざっくり入力／"weight"=1回あたり実測kg／"monthlyWeight"=月間合計kg
     qtyMin: 1,
     qtyMax: 2,
     daysPerWeek: 5,
@@ -1053,6 +1059,8 @@ function defaultItem(type) {
     weeklyQtyMax: "",
     weightQtyMin: "",
     weightQtyMax: "",
+    monthlyWeightQtyMin: "",
+    monthlyWeightQtyMax: "",
     useCustomPrice: false, // true=下記の重量×円/kg計算の代わりに、customUnitPriceを1個あたりの単価としてそのまま使う
     customUnitPrice: ""
   };
@@ -1091,6 +1099,8 @@ function migrateSite(site) {
     if (item.weeklyQtyMax === undefined) item.weeklyQtyMax = "";
     if (item.weightQtyMin === undefined) item.weightQtyMin = "";
     if (item.weightQtyMax === undefined) item.weightQtyMax = "";
+    if (item.monthlyWeightQtyMin === undefined) item.monthlyWeightQtyMin = "";
+    if (item.monthlyWeightQtyMax === undefined) item.monthlyWeightQtyMax = "";
     if (item.useCustomPrice === undefined) item.useCustomPrice = false;
     if (item.customUnitPrice === undefined) item.customUnitPrice = "";
     // 以前保存された全角数字（例：「２」）をここで半角に補正し、既存データも自己修復させる。
@@ -1101,6 +1111,8 @@ function migrateSite(site) {
     item.weeklyQtyMax = normalizeHalfWidth(item.weeklyQtyMax);
     item.weightQtyMin = normalizeHalfWidth(item.weightQtyMin);
     item.weightQtyMax = normalizeHalfWidth(item.weightQtyMax);
+    item.monthlyWeightQtyMin = normalizeHalfWidth(item.monthlyWeightQtyMin);
+    item.monthlyWeightQtyMax = normalizeHalfWidth(item.monthlyWeightQtyMax);
     item.customUnitPrice = normalizeHalfWidth(item.customUnitPrice);
   });
   return site;
@@ -1209,6 +1221,18 @@ function computeItem(item) {
     return { monthlyMin: wLo * days * weeks, monthlyMax: wHi * days * weeks, monthlyAvg: avg * days * weeks };
   }
 
+  if (item.inputMode === "monthlyWeight") {
+    // 「月間◯kgです」と先方から直接言われた場合など、1回あたり重量や頻度を経由せず、
+    // 月間の合計重量(kg)をそのまま入力する方式。週数・頻度を掛け直す必要がないため、
+    // 入力値がそのまま月間量になる。
+    const wMin = validateNumberField(item.monthlyWeightQtyMin).value;
+    const wMax = hasNumericValue(item.monthlyWeightQtyMax) ? validateNumberField(item.monthlyWeightQtyMax).value : wMin;
+    const wLo = Math.min(wMin, wMax);
+    const wHi = Math.max(wMin, wMax);
+    const avg = (wMin + wMax) / 2;
+    return { monthlyMin: wLo, monthlyMax: wHi, monthlyAvg: avg };
+  }
+
   const qtyMin = validateNumberField(item.qtyMin).value;
   // 最大値が未入力なら「範囲」ではなく最小値と同じ単一の数量として扱う
   const qtyMax = hasNumericValue(item.qtyMax) ? validateNumberField(item.qtyMax).value : qtyMin;
@@ -1231,8 +1255,8 @@ function itemLabelPlain(item) {
 
 function itemLabel(item) {
   const base = itemLabelPlain(item);
-  // 実重量(kg)入力モードでは袋サイズの概念を使わないため、「(45L)」等の表記は付けない。
-  if (item.inputMode === "weight") return base;
+  // 実重量(kg)入力モード（1回あたり・月間合計のいずれも）では袋サイズの概念を使わないため、「(45L)」等の表記は付けない。
+  if (isWeightBasedMode(item)) return base;
   return BAG_SIZE_TYPES.includes(item.type) ? `${base}(${item.bagSize}L)` : base;
 }
 
@@ -1244,7 +1268,7 @@ function getPriceDetail(item) {
   }
   const pricePerKg = PRICE_PER_KG[item.type];
   if (pricePerKg === undefined) return null;
-  if (item.inputMode === "weight") {
+  if (isWeightBasedMode(item)) {
     // 実際に計量した重量(kg)をそのまま数量として使うため、「1個あたりの想定重量」という概念がない。
     return { pricePerKg, unitLabel: "kg", weightMode: true };
   }
@@ -1262,8 +1286,8 @@ function computeSite(site) {
   const breakdown = [];
   site.items.forEach(item => {
     const monthlyAvg = computeItem(item).monthlyAvg;
-    // 実際の重量(kg)を直接入力する品目は単位が「個数」ではないため、個数合計には含めない。
-    if (item.inputMode !== "weight") totalQty += monthlyAvg;
+    // 実際の重量(kg)を直接入力する品目（1回あたり・月間合計のいずれも）は単位が「個数」ではないため、個数合計には含めない。
+    if (!isWeightBasedMode(item)) totalQty += monthlyAvg;
     const unitPrice = getUnitPrice(item);
     if (unitPrice !== undefined) {
       const cost = monthlyAvg * unitPrice;
@@ -1576,10 +1600,12 @@ function renderItemRow(site, item) {
   const showRange = Math.round(c.monthlyMin) !== Math.round(c.monthlyMax);
   const isWeekly = item.inputMode === "weekly";
   const isWeight = item.inputMode === "weight";
-  const monthlyUnit = isWeight ? "kg" : "個";
+  const isMonthlyWeight = item.inputMode === "monthlyWeight";
+  const monthlyUnit = isWeightBasedMode(item) ? "kg" : "個";
 
   // 頻度が分からない新規店舗などは「1回あたり数量×頻度」の代わりに「週の合計量」をざっくり入力できる。
-  // 逆に実際に計量している案件は「実際の重量(kg)」を直接入力できる。
+  // 実際に計量している案件は「1回あたりの実際の重量(kg)」を、
+  // 「月間◯kgです」と先方から直接言われた案件は「月間の合計重量(kg)」をそのまま直接入力できる。
   // 切り替えても入力済みの値は消さず保持するので、後から入力方式を変えても値は残る。
   const qtyFreqHtml = isWeekly ? `
     <td data-label="週の合計（目安）" colspan="2">
@@ -1604,6 +1630,16 @@ function renderItemRow(site, item) {
       <span class="field-error"></span><br>
       <a class="note" data-role="toggle-weight-mode">個数(袋)入力に戻す</a>
     </td>
+  ` : isMonthlyWeight ? `
+    <td data-label="月間量(kg)" colspan="2">
+      <div class="qty-pair">
+        <input type="text" inputmode="decimal" data-role="monthlyWeightQtyMin" value="${item.monthlyWeightQtyMin}" placeholder="例：1500"> 〜
+        <input type="text" inputmode="decimal" data-role="monthlyWeightQtyMax" value="${item.monthlyWeightQtyMax}" placeholder="－" title="数量が1つだけの場合は空欄でOK（最小値のみで計算します）">kg
+      </div>
+      <span class="note" style="margin:2px 0 0;">先方から聞いた月間合計をそのまま入力</span>
+      <span class="field-error"></span><br>
+      <a class="note" data-role="toggle-monthly-weight-mode">1回あたりの数量・頻度入力に戻す</a>
+    </td>
   ` : `
     <td data-label="1回あたり数量">
       <div class="qty-pair">
@@ -1616,7 +1652,8 @@ function renderItemRow(site, item) {
       <input type="text" inputmode="numeric" data-role="daysPerWeek" value="${item.daysPerWeek}" style="width:70px;">
       <span class="field-error"></span><br>
       <a class="note" data-role="toggle-mode">週の合計でざっくり入力</a><br>
-      <a class="note" data-role="toggle-weight-mode">実際の重量(kg)で入力</a>
+      <a class="note" data-role="toggle-weight-mode">実際の重量(kg)で入力</a><br>
+      <a class="note" data-role="toggle-monthly-weight-mode">月間量(kg)の合計から入力</a>
     </td>
   `;
 
@@ -1629,10 +1666,10 @@ function renderItemRow(site, item) {
         ${typeOptions.map(t => `<option value="${t}" ${t === item.type ? "selected" : ""}>${t}</option>`).join("")}
       </select>
       ${isCustom ? `<input type="text" class="custom-type-input" data-role="customType" value="${escapeAttr(item.customType)}" placeholder="種別名">` : ""}
-      ${item.type === "古紙" && !isWeight ? `<span class="note" style="color:var(--danger);">↓「実際の重量(kg)で入力」に切り替えてください</span>` : ""}
+      ${item.type === "古紙" && !isWeightBasedMode(item) ? `<span class="note" style="color:var(--danger);">↓「実際の重量(kg)で入力」か「月間量(kg)の合計から入力」に切り替えてください</span>` : ""}
     </td>
     <td data-label="袋サイズ">
-      ${isWeight ? "" : hasBagSize ? `
+      ${isWeightBasedMode(item) ? "" : hasBagSize ? `
         <select data-role="bagSize">
           ${BAG_SIZES.map(s => `<option value="${s}" ${s === item.bagSize ? "selected" : ""}>${s}L</option>`).join("")}
         </select>
@@ -1692,6 +1729,15 @@ function renderItemRow(site, item) {
     });
   }
 
+  const toggleMonthlyWeightModeEl = tr.querySelector('[data-role="toggle-monthly-weight-mode"]');
+  if (toggleMonthlyWeightModeEl) {
+    toggleMonthlyWeightModeEl.addEventListener("click", (e) => {
+      e.preventDefault();
+      item.inputMode = isMonthlyWeight ? "detail" : "monthlyWeight";
+      render();
+    });
+  }
+
   tr.querySelector('[data-role="toggle-custom-price"]').addEventListener("click", (e) => {
     e.preventDefault();
     item.useCustomPrice = !item.useCustomPrice;
@@ -1721,6 +1767,13 @@ function renderItemRow(site, item) {
     wQtyMinEl.addEventListener("input", (e) => { item.weightQtyMin = normalizeHalfWidth(e.target.value); render(); });
     wQtyMaxEl.addEventListener("input", (e) => { item.weightQtyMax = normalizeHalfWidth(e.target.value); render(); });
     daysEl.addEventListener("input", (e) => { item.daysPerWeek = normalizeHalfWidth(e.target.value); render(); });
+  } else if (isMonthlyWeight) {
+    const mwMinEl = tr.querySelector('[data-role="monthlyWeightQtyMin"]');
+    const mwMaxEl = tr.querySelector('[data-role="monthlyWeightQtyMax"]');
+    markFieldValidity(mwMinEl, validateNumberField(item.monthlyWeightQtyMin));
+    markFieldValidity(mwMaxEl, validateNumberField(item.monthlyWeightQtyMax));
+    mwMinEl.addEventListener("input", (e) => { item.monthlyWeightQtyMin = normalizeHalfWidth(e.target.value); render(); });
+    mwMaxEl.addEventListener("input", (e) => { item.monthlyWeightQtyMax = normalizeHalfWidth(e.target.value); render(); });
   } else {
     const qtyMinEl = tr.querySelector('[data-role="qtyMin"]');
     const qtyMaxEl = tr.querySelector('[data-role="qtyMax"]');
@@ -1761,6 +1814,10 @@ function generateTermsText(site) {
         const hasMax = hasNumericValue(item.weightQtyMax);
         const qtyText = hasMax && String(item.weightQtyMax) !== String(item.weightQtyMin) ? `${item.weightQtyMin}〜${item.weightQtyMax}` : `${item.weightQtyMin}`;
         lines.push(`・${label}：1回あたり実測${qtyText}kg、週${item.daysPerWeek}回収集（月間想定 ${fmt(c.monthlyAvg)}kg）`);
+      } else if (item.inputMode === "monthlyWeight") {
+        const hasMax = hasNumericValue(item.monthlyWeightQtyMax);
+        const qtyText = hasMax && String(item.monthlyWeightQtyMax) !== String(item.monthlyWeightQtyMin) ? `${item.monthlyWeightQtyMin}〜${item.monthlyWeightQtyMax}` : `${item.monthlyWeightQtyMin}`;
+        lines.push(`・${label}：月間実績${qtyText}kg想定`);
       } else {
         const hasMax = hasNumericValue(item.qtyMax);
         const qtyText = hasMax && String(item.qtyMax) !== String(item.qtyMin) ? `${item.qtyMin}〜${item.qtyMax}` : `${item.qtyMin}`;
@@ -2487,7 +2544,7 @@ function buildQuoteLineItems(site, summary) {
     const unitLabel = detail ? detail.unitLabel : "個";
     const monthlyQty = computeItem(item).monthlyAvg;
     const baseLabel = XLSX_ITEM_BASE_LABEL[item.type] || itemLabelPlain(item);
-    const freqText = item.inputMode === "weekly" ? "週合計目安" : `週${item.daysPerWeek}`;
+    const freqText = item.inputMode === "weekly" ? "週合計目安" : item.inputMode === "monthlyWeight" ? "月間実績" : `週${item.daysPerWeek}`;
     const priceA = Math.floor(unitPrice / 2);
     const priceB = unitPrice - priceA;
     lines.push({ label: `${baseLabel}　収集運搬費`, qty: monthlyQty, unitLabel, unitPrice: priceA, freqText });
@@ -2934,7 +2991,11 @@ function renderGuideScreen() {
           「詳しく入力に戻す」でいつでも戻せます）。</li>
         <li>実際に計量した重量(kg)がある場合は、「実際の重量(kg)で入力」に切り替えると、袋の想定重量を
           経由せず入力したkgに単価(円/kg)を直接掛けて計算します。<b>「古紙」は排出時の重量が
-          読みにくいため、必ずこの「実際の重量(kg)で入力」に切り替えてから使ってください。</b></li>
+          読みにくいため、必ずこの「実際の重量(kg)で入力」か次の「月間量(kg)の合計から入力」に
+          切り替えてから使ってください。</b></li>
+        <li>「月間◯◯kgです」のように先方から月間の合計重量を直接聞いている場合は、
+          「月間量(kg)の合計から入力」に切り替えると、1回あたり重量や頻度を経由せず、
+          聞いた月間合計kgをそのまま単価(円/kg)に掛けて計算します。</li>
         <li><b>段ボールを廃棄物として処理する場合は「段ボール」（1kg35円）、古紙・再生資源として
           回収する場合は「古紙」（1kg15円）を選びます。</b>単価が大きく異なるため、案件ごとに
           正しい方を選んでください。</li>
